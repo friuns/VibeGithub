@@ -32,6 +32,13 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
         setError('Sign in was cancelled. Please try again.');
       } else if (message.includes('account-exists-with-different-credential')) {
         setError('An account already exists with the same email. Try signing in with a different method.');
+      } else if (message.includes('Redirecting')) {
+        // Popup was blocked, redirecting to GitHub - don't show error
+        setError('');
+        return;
+      } else if (message.includes('popup-blocked') || message.includes('popup_blocked')) {
+        setError('Popup was blocked. Redirecting to GitHub...');
+        return;
       } else {
         setError(message);
       }

@@ -2,6 +2,8 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GithubAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -33,11 +35,46 @@ export interface GitHubAuthResult {
 }
 
 export const signInWithGitHub = async (): Promise<GitHubAuthResult> => {
-  const result = await signInWithPopup(auth, githubProvider);
+  try {
+    // Try popup first
+    const result = await signInWithPopup(auth, githubProvider);
+    const credential = GithubAuthProvider.credentialFromResult(result) as OAuthCredential;
+    
+    if (!credential?.accessToken) {
+      throw new Error('Failed to get GitHub access token');
+    }
+
+    return {
+      user: result.user,
+      accessToken: credential.accessToken,
+    };
+  } catch (error: unknown) {
+    // If popup is blocked, fall back to redirect
+    if (error instanceof Error && 
+        (error.message.includes('popup-blocked') || 
+         error.message.includes('popup_blocked') ||
+         (error as { code?: string }).code === 'auth/popup-blocked')) {
+      // Use redirect as fallback - this will navigate away from the page
+      await signInWithRedirect(auth, githubProvider);
+      // This line won't be reached as the page will redirect
+      throw new Error('Redirecting to GitHub for authentication...');
+    }
+    throw error;
+  }
+};
+
+// Call this on app load to handle redirect result
+export const handleRedirectResult = async (): Promise<GitHubAuthResult | null> => {
+  const result = await getRedirectResult(auth);
+  
+  if (!result) {
+    return null;
+  }
+  
   const credential = GithubAuthProvider.credentialFromResult(result) as OAuthCredential;
   
   if (!credential?.accessToken) {
-    throw new Error('Failed to get GitHub access token');
+    throw new Error('Failed to get GitHub access token from redirect');
   }
 
   return {
