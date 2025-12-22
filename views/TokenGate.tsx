@@ -54,7 +54,7 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
           <div className="bg-slate-900 dark:bg-slate-700 p-3 rounded-full mb-4 text-white">
             <Github size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome to GitGenius</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome to VibeGithub</h1>
           <p className="text-slate-500 dark:text-slate-400 text-center mt-2">
             Sign in with your GitHub account to manage your repositories with AI assistance.
           </p>
