@@ -81,8 +81,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
       const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
         title: newTitle,
         body: newBody,
-        labels: ['jules'],
-        assignees: ['copilot']
+        labels: ['jules']
       });
       setIsModalOpen(false);
       setNewTitle('');
