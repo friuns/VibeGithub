@@ -99,8 +99,7 @@ Issues created through VibeGithub are pre-configured for AI agent consumption:
 const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
   title: newTitle,
   body: newBody,
-  labels: ['jules'],      // Auto-labeled for Jules
-  assignees: ['copilot']  // Auto-assigned to Copilot
+  labels: ['jules']      // Auto-labeled for Jules
 });
 ```
 
