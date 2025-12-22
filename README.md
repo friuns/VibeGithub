@@ -8,9 +8,9 @@ VibeGithub is a modern interface for managing GitHub repositories with native AI
 
 ## What It Does
 
-- **Command AI Agents from Issues** — Create issues that automatically assign to AI agents with proper labels
+- **Command AI Agents from Issues** — Create issues that are automatically labeled for AI agents
 - **@jules Integration** — Comment on PRs with `@jules` mentions to request changes or reviews
-- **@copilot Assignment** — New issues are auto-assigned to GitHub Copilot for automated work
+- **Auto-labeling** — New issues are automatically tagged with the 'jules' label for agent tracking
 - **Workflow References** — Link to CI/CD workflows when creating issues so agents understand your pipeline
 
 ![Issues with Jules Labels](screenshots/repo-issues.png)
@@ -21,8 +21,7 @@ VibeGithub is a modern interface for managing GitHub repositories with native AI
 
 When you create an issue, it automatically:
 1. Adds the `jules` label for agent tracking
-2. Assigns `@copilot` as the default assignee
-3. Lets you reference workflow files for context
+2. Lets you reference workflow files for context
 
 ![Create Issue Modal](screenshots/create-issue-modal.png)
 
@@ -99,8 +98,7 @@ Issues created through VibeGithub are pre-configured for AI agent consumption:
 const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
   title: newTitle,
   body: newBody,
-  labels: ['jules'],      // Auto-labeled for Jules
-  assignees: ['copilot']  // Auto-assigned to Copilot
+  labels: ['jules']  // Auto-labeled for Jules
 });
 ```
 
