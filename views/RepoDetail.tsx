@@ -82,7 +82,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
         title: newTitle,
         body: newBody,
         labels: ['jules'],
-        assignees: ['copilot']
+        assignees: ['copilot-swe-agent[bot]']
       });
       setIsModalOpen(false);
       setNewTitle('');
