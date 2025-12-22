@@ -1,0 +1,31 @@
+{
+  "name": "gitgenius-hub",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "firebase": "^12.7.0",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.6.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251219.0",
+    "@netlify/functions": "^5.1.1",
+    "@types/node": "^22.14.0",
+    "@vercel/node": "^5.5.16",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "wrangler": "^4.56.0"
+  }
+}
