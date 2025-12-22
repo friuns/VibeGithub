@@ -1,167 +1,148 @@
-# GitGenius Hub
+# VibeGithub
 
-A modern GitHub repository manager with AI assistance, built with React, TypeScript, and Firebase Authentication.
+> **A vibe-coded GitHub wrapper for commanding AI coding agents (Jules, GitHub Copilot) directly from issues**
 
-## Features
+![Dashboard](screenshots/dashboard.png)
 
-- 🔐 GitHub OAuth login via Firebase
-- 📁 Browse and manage your repositories
-- 🐛 View and create issues
-- 🔀 Manage pull requests
-- 🚀 Monitor GitHub Actions workflows
-- 🎨 Beautiful, responsive UI
+VibeGithub is a modern interface for managing GitHub repositories with native AI agent integration. Create issues that automatically trigger AI coding agents like **Jules** and **GitHub Copilot** to work on your codebase.
+
+## What It Does
+
+- **Command AI Agents from Issues** — Create issues that automatically assign to AI agents with proper labels
+- **@jules Integration** — Comment on PRs with `@jules` mentions to request changes or reviews
+- **@copilot Assignment** — New issues are auto-assigned to GitHub Copilot for automated work
+- **Workflow References** — Link to CI/CD workflows when creating issues so agents understand your pipeline
+
+![Issues with Jules Labels](screenshots/repo-issues.png)
+
+## Key Features
+
+### Issue → Agent Pipeline
+
+When you create an issue, it automatically:
+1. Adds the `jules` label for agent tracking
+2. Assigns `@copilot` as the default assignee
+3. Lets you reference workflow files for context
+
+![Create Issue Modal](screenshots/create-issue-modal.png)
+
+### Related PR Tracking
+
+View PRs that reference your issue, with:
+- One-click merge buttons
+- Direct `@jules` commenting for agent commands
+- Deployment status tracking
+- GitHub Actions run visibility
+
+### Comment with @jules
+
+From any related PR, type your command and click "Send @jules" to:
+- Request code changes
+- Ask for reviews
+- Trigger specific actions
+
+## Screenshots
+
+| Dashboard | Repo Issues |
+|-----------|-------------|
+| ![Dashboard](screenshots/dashboard.png) | ![Repo Issues](screenshots/repo-detail-full.png) |
+
+| Create Issue | Issue Modal |
+|--------------|-------------|
+| ![Create Issue](screenshots/create-issue-modal.png) | ![Repo Detail](screenshots/repo-detail.png) |
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/yourusername/VibeGithub.git
+cd VibeGithub
+npm install
+
+# Run development server
+npm run dev
+```
+
+Open `http://localhost:3000` and sign in with GitHub.
 
 ## Setup
 
-### Prerequisites
+### Firebase Configuration
 
-- Node.js 18+ 
-- npm or yarn
-- A Firebase project
-- A GitHub account
-
-### 1. Clone and Install
-
-```bash
-git clone <your-repo-url>
-cd VibeGithub
-npm install
-```
-
-### 2. Firebase Setup
-
-#### Create a Firebase Project
-
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click **Add project** and follow the setup wizard
-3. Once created, go to **Project Settings** > **General**
-4. Scroll down to **Your apps** and click the web icon (`</>`)
-5. Register your app and copy the Firebase config
-
-#### Update Firebase Config
-
-Edit `services/firebaseService.ts` and replace the config with your own:
+1. Create a project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable GitHub authentication under **Authentication > Sign-in method**
+3. Update `services/firebaseService.ts` with your config:
 
 ```typescript
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
   projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  // ... rest of config
 };
 ```
 
-### 3. GitHub OAuth Setup
-
-#### Create a GitHub OAuth App
+### GitHub OAuth
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click **OAuth Apps** > **New OAuth App**
-3. Fill in the details:
-   - **Application name**: GitGenius Hub (or your preferred name)
-   - **Homepage URL**: `http://localhost:3000` (for development)
-   - **Authorization callback URL**: `https://YOUR_PROJECT_ID.firebaseapp.com/__/auth/handler`
-   
-   > ⚠️ Replace `YOUR_PROJECT_ID` with your actual Firebase project ID
-   
-4. Click **Register application**
-5. Copy the **Client ID**
-6. Click **Generate a new client secret** and copy the **Client Secret**
+2. Create an **OAuth App** with callback: `https://YOUR_PROJECT.firebaseapp.com/__/auth/handler`
+3. Add Client ID and Secret to Firebase GitHub provider settings
 
-#### Enable GitHub in Firebase
+## How Agent Integration Works
 
-1. Go to [Firebase Console](https://console.firebase.google.com/) > Your Project
-2. Navigate to **Authentication** > **Sign-in method**
-3. Click **Add new provider** > **GitHub**
-4. Toggle **Enable**
-5. Paste your GitHub **Client ID** and **Client Secret**
-6. Copy the **Authorization callback URL** shown (should match what you set in GitHub)
-7. Click **Save**
+### Creating Agent-Ready Issues
 
-#### Add Authorized Domains (for Production)
+Issues created through VibeGithub are pre-configured for AI agent consumption:
 
-1. In Firebase Console, go to **Authentication** > **Settings**
-2. Under **Authorized domains**, add your production domain (e.g., `your-app.netlify.app`)
-
-### 4. Run the App
-
-```bash
-npm run dev
+```typescript
+// From RepoDetail.tsx
+const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
+  title: newTitle,
+  body: newBody,
+  labels: ['jules'],      // Auto-labeled for Jules
+  assignees: ['copilot']  // Auto-assigned to Copilot
+});
 ```
 
-The app will be available at `http://localhost:3000` (or another port if 3000 is in use).
+### Commenting to @jules on PRs
 
-## Development
+From the issue detail view, you can send commands to Jules on any related PR:
 
-### Available Scripts
-
-```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run preview  # Preview production build
+```typescript
+// From IssueDetail.tsx
+const body = `${userComment.trim()} @jules`;
+await createIssueComment(token, repo.owner.login, repo.name, prNumber, body);
 ```
 
-### Project Structure
+## Project Structure
 
 ```
-├── App.tsx                 # Main app component with routing
-├── components/             # Reusable UI components
+├── App.tsx                 # Main routing
+├── components/
 │   ├── Button.tsx
 │   ├── Markdown.tsx
-│   ├── RepoCard.tsx
+│   ├── RepoCard.tsx        # Repo card with issue previews
 │   └── Toast.tsx
 ├── services/
-│   ├── firebaseService.ts  # Firebase auth configuration
-│   ├── githubService.ts    # GitHub API calls
-│   └── cacheService.ts     # Local caching
+│   ├── firebaseService.ts  # GitHub OAuth via Firebase
+│   ├── githubService.ts    # GitHub API (issues, PRs, workflows)
+│   └── cacheService.ts     # Local caching for fast UX
 ├── views/
 │   ├── TokenGate.tsx       # Login page
 │   ├── Dashboard.tsx       # Repository list
-│   ├── RepoDetail.tsx      # Single repo view
-│   └── IssueDetail.tsx     # Issue/PR details
-└── types.ts                # TypeScript interfaces
+│   ├── RepoDetail.tsx      # Issues + New Issue modal
+│   └── IssueDetail.tsx     # Issue view + @jules commenting
+└── types.ts
 ```
 
-## Deployment
+## Tech Stack
 
-### Netlify
-
-1. Connect your repository to Netlify
-2. Set build command: `npm run build`
-3. Set publish directory: `dist`
-4. Add your Netlify domain to Firebase authorized domains
-
-### Environment Variables
-
-For production, consider using environment variables for sensitive config:
-
-```bash
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-```
-
-## Troubleshooting
-
-### "popup-closed-by-user" Error
-
-This occurs when the OAuth popup is closed before completing. Just try signing in again.
-
-### "auth/unauthorized-domain" Error
-
-Add your domain to Firebase's authorized domains:
-1. Firebase Console > Authentication > Settings > Authorized domains
-2. Add your domain (e.g., `localhost`, `your-app.netlify.app`)
-
-### GitHub Scopes
-
-The app requests these GitHub OAuth scopes:
-- `repo` - Full access to repositories
-- `read:user` - Read user profile data
+- **React 18** + TypeScript
+- **Vite** for fast builds
+- **Tailwind CSS** for styling
+- **Firebase Auth** for GitHub OAuth
+- **GitHub REST API** for repository operations
 
 ## License
 
 MIT
-
