@@ -1,16 +1,26 @@
 # VibeGithub
 
-> **A vibe-coded GitHub wrapper for commanding AI coding agents (Jules, GitHub Copilot) directly from issues**
+> **A vibe-coded GitHub wrapper for commanding AI coding agents (Jules, GitHub Copilot, OpenCode) directly from issues**
 
 ![Dashboard](screenshots/dashboard.png)
 
-VibeGithub is a modern interface for managing GitHub repositories with native AI agent integration. Create issues that automatically trigger AI coding agents like **Jules** and **GitHub Copilot** to work on your codebase.
+VibeGithub is a modern interface for managing GitHub repositories with native AI agent integration. Create issues that automatically trigger AI coding agents like **Jules**, **GitHub Copilot**, and **OpenCode** to work on your codebase.
+
+## Supported Agents
+
+| Agent | Trigger | Description |
+|-------|---------|-------------|
+| **Jules** | `@jules` | Google's AI coding agent for code changes and reviews |
+| **GitHub Copilot** | `@copilot` | GitHub's AI pair programmer and SWE agent |
+| **OpenCode** | `@opencode` | Open-source AI coding assistant |
+| **Codex** | `@codex` | OpenAI's code generation model |
+| **Cursor** | `@cursor` | AI-first code editor agent |
 
 ## What It Does
 
 - **Command AI Agents from Issues** — Create issues that automatically assign to AI agents with proper labels
-- **@jules Integration** — Comment on PRs with `@jules` mentions to request changes or reviews
-- **@copilot Assignment** — New issues are auto-assigned to GitHub Copilot for automated work
+- **@jules / @opencode / @copilot Integration** — Comment on PRs with agent mentions to request changes
+- **Auto-Assignment** — New issues are auto-assigned to your preferred AI agent
 - **Workflow References** — Link to CI/CD workflows when creating issues so agents understand your pipeline
 
 ![Issues with Jules Labels](screenshots/repo-issues.png)
@@ -34,12 +44,17 @@ View PRs that reference your issue, with:
 - Deployment status tracking
 - GitHub Actions run visibility
 
-### Comment with @jules
+### Comment with AI Agents
 
-From any related PR, type your command and click "Send @jules" to:
-- Request code changes
-- Ask for reviews
-- Trigger specific actions
+From any related PR, type your command and mention an agent:
+
+```
+@jules please fix the failing tests
+@opencode refactor this to use async/await
+@copilot add error handling to this function
+```
+
+The "Send @jules" button automatically appends the agent mention to your comment.
 
 ## Screenshots
 
@@ -100,19 +115,26 @@ const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
   title: newTitle,
   body: newBody,
   labels: ['jules'],      // Auto-labeled for Jules
-  assignees: ['copilot']  // Auto-assigned to Copilot
+  assignees: ['@copilot'] // Assign to GitHub Copilot coding agent
 });
 ```
 
-### Commenting to @jules on PRs
+### Commenting to AI Agents on PRs
 
-From the issue detail view, you can send commands to Jules on any related PR:
+From the issue detail view, you can send commands to any agent on related PRs:
 
 ```typescript
-// From IssueDetail.tsx
+// From IssueDetail.tsx - works with @jules, @opencode, @copilot, etc.
 const body = `${userComment.trim()} @jules`;
 await createIssueComment(token, repo.owner.login, repo.name, prNumber, body);
 ```
+
+Agents that work with this pattern:
+- `@jules` — Google's Jules AI
+- `@opencode` — OpenCode agent
+- `@copilot` — GitHub Copilot
+- `@codex` — OpenAI Codex
+- `@cursor` — Cursor AI
 
 ## Project Structure
 
