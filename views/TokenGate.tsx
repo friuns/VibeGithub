@@ -93,7 +93,7 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess, isAddingAccount
             Sign in with GitHub
           </Button>
 
-          {isAddingAccount && onCancel && (
+          {isAddingAccount && (
             <Button 
               onClick={onCancel} 
               className="w-full" 

@@ -1,6 +1,7 @@
 // Account management service for handling multiple GitHub accounts
 
 import { GitHubUser } from '../types';
+import { CACHE_PREFIX } from './cacheService';
 
 const ACCOUNTS_KEY = 'gh_accounts';
 const ACTIVE_ACCOUNT_KEY = 'gh_active_account';
@@ -169,7 +170,7 @@ export function clearAllAccounts(): void {
  * Clear cache for a specific account
  */
 function clearAccountCache(accountId: string): void {
-  const prefix = `vibe_github_cache_${accountId}_`;
+  const prefix = `${CACHE_PREFIX}${accountId}_`;
   const keysToRemove: string[] = [];
   
   for (let i = 0; i < localStorage.length; i++) {

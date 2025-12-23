@@ -1,7 +1,7 @@
 // Cache service for stale-while-revalidate pattern
 // Shows cached data instantly, then updates with fresh data in background
 
-const CACHE_PREFIX = 'vibe_github_cache_';
+export const CACHE_PREFIX = 'vibe_github_cache_';
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes - data considered "fresh" within this time
 
 interface CacheEntry<T> {
