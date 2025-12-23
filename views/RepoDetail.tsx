@@ -8,12 +8,13 @@ import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface RepoDetailProps {
   token: string;
+  user: { login: string };
   repo: Repository;
   onBack: () => void;
   onIssueSelect: (issue: Issue) => void;
 }
 
-export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onIssueSelect }) => {
+export const RepoDetail: React.FC<RepoDetailProps> = ({ token, user, repo, onBack, onIssueSelect }) => {
   const { toasts, dismissToast, showError } = useToast();
   const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
   
@@ -36,7 +37,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
 
   // Workflow Files State
   const [workflowFiles, setWorkflowFiles] = useState<WorkflowFile[]>(() => {
-    return getCached<WorkflowFile[]>(CacheKeys.workflowFiles()) || [];
+    return getCached<WorkflowFile[]>(CacheKeys.workflowFiles(user.login)) || [];
   });
   const [loadingWorkflows, setLoadingWorkflows] = useState(false);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(false);
@@ -110,7 +111,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   };
 
   const loadWorkflowFiles = React.useCallback(async () => {
-    const cachedWorkflows = getCached<WorkflowFile[]>(CacheKeys.workflowFiles());
+    const cachedWorkflows = getCached<WorkflowFile[]>(CacheKeys.workflowFiles(user.login));
     if (cachedWorkflows && cachedWorkflows.length > 0) {
       setWorkflowFiles(cachedWorkflows);
       return;
@@ -119,11 +120,11 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     setLoadingWorkflows(true);
     try {
       // Fetch repos first if needed
-      const repos = getCached<Repository[]>(CacheKeys.repos()) || [];
+      const repos = getCached<Repository[]>(CacheKeys.repos(user.login)) || [];
       if (repos.length > 0) {
         const workflows = await fetchAllWorkflowFiles(token, repos);
         setWorkflowFiles(workflows);
-        setCache(CacheKeys.workflowFiles(), workflows);
+        setCache(CacheKeys.workflowFiles(user.login), workflows);
       }
     } catch (err) {
       console.error('Failed to load workflow files:', err);

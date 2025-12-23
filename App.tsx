@@ -114,6 +114,7 @@ const App: React.FC = () => {
     return (
       <RepoDetail
         token={token}
+        user={user}
         repo={selectedRepo}
         onBack={navigateBack}
         onIssueSelect={navigateToIssue}
