@@ -1,30 +1,35 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Repository, GitHubUser, RepoDraft, Issue } from '../types';
+import { Repository, GitHubUser, RepoDraft, Issue, Account } from '../types';
 import { fetchRepositories, createRepository, deleteRepository } from '../services/githubService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle } from 'lucide-react';
+import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, ChevronDown, UserPlus } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface DashboardProps {
   token: string;
   user: GitHubUser;
+  accounts: Account[];
+  currentAccountId: string | null;
   onRepoSelect: (repo: Repository) => void;
-  onLogout: () => void | Promise<void>;
+  onLogout: (accountId?: string) => void | Promise<void>;
+  onSwitchAccount: (accountId: string) => void;
+  onAddAccount: () => void;
+  accountId: string;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ token, user, accounts, currentAccountId, onRepoSelect, onLogout, onSwitchAccount, onAddAccount, accountId }) => {
   const { toasts, dismissToast, showError } = useToast();
   
   // Initialize from cache for instant display
   const [repos, setRepos] = useState<Repository[]>(() => {
-    return getCached<Repository[]>(CacheKeys.repos()) || [];
+    return getCached<Repository[]>(CacheKeys.repos(accountId)) || [];
   });
   const [loading, setLoading] = useState(() => {
     // Only show loading if no cached data
-    return !getCached<Repository[]>(CacheKeys.repos());
+    return !getCached<Repository[]>(CacheKeys.repos(accountId));
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -32,9 +37,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     const saved = localStorage.getItem('pinnedRepos');
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   // Initialize issues from cache for instant display
   const [repoIssues, setRepoIssues] = useState<Record<number, Issue[]>>(() => {
-    const cachedRepos = getCached<Repository[]>(CacheKeys.repos());
+    const cachedRepos = getCached<Repository[]>(CacheKeys.repos(accountId));
     if (!cachedRepos) return {};
     
     const issuesMap: Record<number, Issue[]> = {};
@@ -91,7 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       const data = await fetchRepositories(token);
       setRepos(data);
       // Cache the repos for instant display on next visit
-      setCache(CacheKeys.repos(), data);
+      setCache(CacheKeys.repos(accountId), data);
       
       // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
@@ -126,6 +133,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     loadRepos(false);
     isInitialMount.current = false;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsAccountDropdownOpen(false);
+      }
+    };
+
+    if (isAccountDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isAccountDropdownOpen]);
 
   const handleCreateRepo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,21 +225,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-             <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
-             <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" onClick={onLogout} icon={<LogOut size={16} />}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+       {/* Header */}
+       <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
+         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+           {/* Account Switcher */}
+           <div className="relative" ref={dropdownRef}>
+             <button
+               onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+               className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+             >
+               <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
+               <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
+               <ChevronDown size={16} className="text-slate-500 dark:text-slate-400" />
+             </button>
+
+             {isAccountDropdownOpen && (
+               <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20">
+                 <div className="p-2">
+                   <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide px-2 py-1">
+                     Switch Account
+                   </div>
+                   {accounts.map((account) => (
+                     <button
+                       key={account.id}
+                       onClick={() => {
+                         onSwitchAccount(account.id);
+                         setIsAccountDropdownOpen(false);
+                       }}
+                       className={`w-full flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${
+                         account.id === currentAccountId ? 'bg-slate-50 dark:bg-slate-700' : ''
+                       }`}
+                     >
+                       <img src={account.user.avatar_url} alt={account.user.login} className="w-6 h-6 rounded-full border border-slate-200 dark:border-slate-600" />
+                       <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{account.user.login}</span>
+                       {account.id === currentAccountId && (
+                         <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">Current</span>
+                       )}
+                     </button>
+                   ))}
+
+                   <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+
+                   <button
+                     onClick={() => {
+                       onAddAccount();
+                       setIsAccountDropdownOpen(false);
+                     }}
+                     className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                   >
+                     <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center">
+                       <UserPlus size={12} className="text-slate-600 dark:text-slate-400" />
+                     </div>
+                     <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Add Account</span>
+                   </button>
+                 </div>
+               </div>
+             )}
+           </div>
+
+           <div className="flex items-center gap-2">
+             <ThemeToggle />
+             <Button variant="ghost" onClick={() => onLogout(currentAccountId || undefined)} icon={<LogOut size={16} />}>
+               Sign Out
+             </Button>
+           </div>
+         </div>
+       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">

@@ -61,13 +61,13 @@ export function clearCache(key?: string): void {
 
 // Cache keys helper
 export const CacheKeys = {
-  repos: () => 'repos',
-  repoIssues: (owner: string, repo: string) => `issues_${owner}_${repo}`,
-  issueComments: (owner: string, repo: string, issueNumber: number) => `comments_${owner}_${repo}_${issueNumber}`,
-  workflowRuns: (owner: string, repo: string) => `workflows_${owner}_${repo}`,
-  prDetails: (owner: string, repo: string, prNumber: number) => `pr_${owner}_${repo}_${prNumber}`,
-  issueExpandedData: (owner: string, repo: string, issueNumber: number) => `expanded_${owner}_${repo}_${issueNumber}`,
-  workflowFiles: () => 'workflow_files',
+  repos: (accountId?: string) => accountId ? `repos_${accountId}` : 'repos',
+  repoIssues: (owner: string, repo: string, accountId?: string) => accountId ? `issues_${accountId}_${owner}_${repo}` : `issues_${owner}_${repo}`,
+  issueComments: (owner: string, repo: string, issueNumber: number, accountId?: string) => accountId ? `comments_${accountId}_${owner}_${repo}_${issueNumber}` : `comments_${owner}_${repo}_${issueNumber}`,
+  workflowRuns: (owner: string, repo: string, accountId?: string) => accountId ? `workflows_${accountId}_${owner}_${repo}` : `workflows_${owner}_${repo}`,
+  prDetails: (owner: string, repo: string, prNumber: number, accountId?: string) => accountId ? `pr_${accountId}_${owner}_${repo}_${prNumber}` : `pr_${owner}_${repo}_${prNumber}`,
+  issueExpandedData: (owner: string, repo: string, issueNumber: number, accountId?: string) => accountId ? `expanded_${accountId}_${owner}_${repo}_${issueNumber}` : `expanded_${owner}_${repo}_${issueNumber}`,
+  workflowFiles: (accountId?: string) => accountId ? `workflow_files_${accountId}` : 'workflow_files',
 };
 
 // Type for cached expanded issue data (all data needed for expanded view)

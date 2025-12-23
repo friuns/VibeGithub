@@ -12,14 +12,15 @@ interface IssueDetailProps {
   repo: Repository;
   issue: Issue;
   onBack: () => void;
+  accountId: string;
 }
 
-export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, onBack }) => {
+export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, onBack, accountId }) => {
   const { toasts, dismissToast, showSuccess, showError, showInfo } = useToast();
   
   // Cache keys
-  const issuesCacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
-  const expandedCacheKey = CacheKeys.issueExpandedData(repo.owner.login, repo.name, issue.number);
+  const issuesCacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name, accountId);
+  const expandedCacheKey = CacheKeys.issueExpandedData(repo.owner.login, repo.name, issue.number, accountId);
   
   // Get cached data for instant display
   const cachedData = getCached<CachedExpandedIssueData>(expandedCacheKey);
