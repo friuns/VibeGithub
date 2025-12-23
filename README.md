@@ -82,26 +82,43 @@ Open `http://localhost:3000` and sign in with GitHub.
 
 ## Setup
 
+### Environment Variables
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Fill in your Firebase configuration in `.env`:
+```env
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
 ### Firebase Configuration
 
 1. Create a project at [Firebase Console](https://console.firebase.google.com/)
 2. Enable GitHub authentication under **Authentication > Sign-in method**
-3. Update `services/firebaseService.ts` with your config:
-
-```typescript
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  // ... rest of config
-};
-```
+3. Get your Firebase config from **Project Settings > General > Your apps**
+4. Add the values to your `.env` file (see above)
 
 ### GitHub OAuth
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
 2. Create an **OAuth App** with callback: `https://YOUR_PROJECT.firebaseapp.com/__/auth/handler`
 3. Add Client ID and Secret to Firebase GitHub provider settings
+
+### GitHub Actions Secrets (for deployment)
+
+If you plan to deploy this app, configure these secrets in your GitHub repository settings (**Settings > Secrets and variables > Actions**):
+
+- `NETLIFY_AUTH_TOKEN` - Your Netlify authentication token
+- `NETLIFY_SITE_ID` - Your Netlify site ID
+- `OPENCODE_API_KEY` - Your OpenCode API key (if using OpenCode agent)
 
 ## How Agent Integration Works
 

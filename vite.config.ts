@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
+        // Vite automatically exposes VITE_* env vars to import.meta.env
       },
       resolve: {
         alias: {

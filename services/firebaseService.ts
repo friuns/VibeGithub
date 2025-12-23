@@ -12,12 +12,12 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAf0CIHBZ-wEQJ8CCUUWo1Wl9P7typ_ZPI",
-  authDomain: "gptcall-416910.firebaseapp.com",
-  projectId: "gptcall-416910",
-  storageBucket: "gptcall-416910.appspot.com",
-  messagingSenderId: "99275526699",
-  appId: "1:99275526699:web:3b623e1e2996108b52106e"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAf0CIHBZ-wEQJ8CCUUWo1Wl9P7typ_ZPI",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gptcall-416910.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gptcall-416910",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gptcall-416910.appspot.com",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "99275526699",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:99275526699:web:3b623e1e2996108b52106e"
 };
 
 // Initialize Firebase

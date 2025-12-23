@@ -42,8 +42,8 @@ jobs:
           enable-commit-comment: false
           overwrites-pull-request-comment: false
         env:
-          NETLIFY_AUTH_TOKEN: nfp_7mrwfjfXpwtAA2yRS9Cdj52S5GLWuB8v6393
-          NETLIFY_SITE_ID: ef61ba0a-53d3-45ed-8965-4fcd861654ba
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 1
 
       - name: Create Deployment Status
