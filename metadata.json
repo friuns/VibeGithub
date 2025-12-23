@@ -1,5 +1,5 @@
 {
-  "name": "GitGenius Hub",
-  "description": "A GitHub repository manager enhanced with Gemini AI to help you draft better issues and visualize repository data.",
+  "name": "VibeGithub",
+  "description": "A vibe-coded GitHub wrapper for commanding AI coding agents (Jules, GitHub Copilot) directly from issues",
   "requestFramePermissions": []
 }
