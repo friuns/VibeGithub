@@ -204,8 +204,13 @@ export function migrateOldAccountData(): void {
       // Remove old data
       localStorage.removeItem('gh_token');
       localStorage.removeItem('gh_user');
+      
+      console.log('Successfully migrated account data to new multi-account system');
     } catch (err) {
-      console.error('Failed to migrate old account data:', err);
+      console.error('Failed to migrate old account data. Please sign in again to continue.', err);
+      // Clean up potentially corrupted data
+      localStorage.removeItem('gh_token');
+      localStorage.removeItem('gh_user');
     }
   }
 }

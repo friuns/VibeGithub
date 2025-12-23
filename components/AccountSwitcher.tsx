@@ -106,7 +106,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                   accounts.length > 1 && (
                     <button
                       onClick={(e) => handleRemoveAccount(e, account.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-opacity"
                       title="Remove account"
                       aria-label={`Remove account ${account.user.login}`}
                     >
