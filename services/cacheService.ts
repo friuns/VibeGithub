@@ -61,13 +61,13 @@ export function clearCache(key?: string): void {
 
 // Cache keys helper
 export const CacheKeys = {
-  repos: () => 'repos',
+  repos: (userId: string) => `repos_${userId}`,
   repoIssues: (owner: string, repo: string) => `issues_${owner}_${repo}`,
   issueComments: (owner: string, repo: string, issueNumber: number) => `comments_${owner}_${repo}_${issueNumber}`,
   workflowRuns: (owner: string, repo: string) => `workflows_${owner}_${repo}`,
   prDetails: (owner: string, repo: string, prNumber: number) => `pr_${owner}_${repo}_${prNumber}`,
   issueExpandedData: (owner: string, repo: string, issueNumber: number) => `expanded_${owner}_${repo}_${issueNumber}`,
-  workflowFiles: () => 'workflow_files',
+  workflowFiles: (userId: string) => `workflow_files_${userId}`,
 };
 
 // Type for cached expanded issue data (all data needed for expanded view)

@@ -20,11 +20,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
   
   // Initialize from cache for instant display
   const [repos, setRepos] = useState<Repository[]>(() => {
-    return getCached<Repository[]>(CacheKeys.repos()) || [];
+    return getCached<Repository[]>(CacheKeys.repos(user.login)) || [];
   });
   const [loading, setLoading] = useState(() => {
     // Only show loading if no cached data
-    return !getCached<Repository[]>(CacheKeys.repos());
+    return !getCached<Repository[]>(CacheKeys.repos(user.login));
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -34,9 +34,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
   });
   // Initialize issues from cache for instant display
   const [repoIssues, setRepoIssues] = useState<Record<number, Issue[]>>(() => {
-    const cachedRepos = getCached<Repository[]>(CacheKeys.repos());
+    const cachedRepos = getCached<Repository[]>(CacheKeys.repos(user.login));
     if (!cachedRepos) return {};
-    
+
     const issuesMap: Record<number, Issue[]> = {};
     for (const repo of cachedRepos.slice(0, 4)) {
       const cachedIssues = getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name));
@@ -91,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       const data = await fetchRepositories(token);
       setRepos(data);
       // Cache the repos for instant display on next visit
-      setCache(CacheKeys.repos(), data);
+      setCache(CacheKeys.repos(user.login), data);
       
       // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
