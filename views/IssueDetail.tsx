@@ -12,9 +12,10 @@ interface IssueDetailProps {
   repo: Repository;
   issue: Issue;
   onBack: () => void;
+  accountId: string;
 }
 
-export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, onBack }) => {
+export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, onBack, accountId }) => {
   const { toasts, dismissToast, showSuccess, showError, showInfo } = useToast();
   
   // Cache keys
@@ -22,7 +23,7 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
   const expandedCacheKey = CacheKeys.issueExpandedData(repo.owner.login, repo.name, issue.number);
   
   // Get cached data for instant display
-  const cachedData = getCached<CachedExpandedIssueData>(expandedCacheKey);
+  const cachedData = getCached<CachedExpandedIssueData>(expandedCacheKey, accountId);
   
   // State - initialize from cache if available
   const [comments, setComments] = useState<Comment[]>(() => cachedData?.comments || []);
@@ -68,7 +69,7 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
   
   // All issues (needed to find related PRs)
   const [allIssues, setAllIssues] = useState<Issue[]>(() => {
-    return getCached<Issue[]>(issuesCacheKey) || [];
+    return getCached<Issue[]>(issuesCacheKey, accountId) || [];
   });
   
   // Filter out pull requests
@@ -91,7 +92,7 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
       ]);
       
       setAllIssues(issuesList);
-      setCache(issuesCacheKey, issuesList);
+      setCache(issuesCacheKey, issuesList, accountId);
       setComments(issueComments);
       setWorkflowRuns(runs);
 
@@ -195,7 +196,7 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
         artifacts: Object.fromEntries(artifactMap),
         prComments: Object.fromEntries(prCommentsMap),
       };
-      setCache(expandedCacheKey, dataToCache);
+      setCache(expandedCacheKey, dataToCache, accountId);
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setComments([]);

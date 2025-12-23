@@ -5,26 +5,46 @@ import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { AccountSwitcher } from '../components/AccountSwitcher';
 import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
+import { Account } from '../services/accountService';
 
 interface DashboardProps {
   token: string;
   user: GitHubUser;
   onRepoSelect: (repo: Repository) => void;
   onLogout: () => void | Promise<void>;
+  accounts: Account[];
+  currentAccount: Account;
+  onSwitchAccount: (accountId: string) => void;
+  onAddAccount: () => void;
+  onRemoveAccount: (accountId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  token, 
+  user, 
+  onRepoSelect, 
+  onLogout,
+  accounts,
+  currentAccount,
+  onSwitchAccount,
+  onAddAccount,
+  onRemoveAccount
+}) => {
   const { toasts, dismissToast, showError } = useToast();
+  
+  // Get account ID for cache scoping
+  const accountId = currentAccount.id;
   
   // Initialize from cache for instant display
   const [repos, setRepos] = useState<Repository[]>(() => {
-    return getCached<Repository[]>(CacheKeys.repos()) || [];
+    return getCached<Repository[]>(CacheKeys.repos(), accountId) || [];
   });
   const [loading, setLoading] = useState(() => {
     // Only show loading if no cached data
-    return !getCached<Repository[]>(CacheKeys.repos());
+    return !getCached<Repository[]>(CacheKeys.repos(), accountId);
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -34,12 +54,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
   });
   // Initialize issues from cache for instant display
   const [repoIssues, setRepoIssues] = useState<Record<number, Issue[]>>(() => {
-    const cachedRepos = getCached<Repository[]>(CacheKeys.repos());
+    const cachedRepos = getCached<Repository[]>(CacheKeys.repos(), accountId);
     if (!cachedRepos) return {};
     
     const issuesMap: Record<number, Issue[]> = {};
     for (const repo of cachedRepos.slice(0, 4)) {
-      const cachedIssues = getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name));
+      const cachedIssues = getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name), accountId);
       if (cachedIssues) {
         issuesMap[repo.id] = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
       }
@@ -91,7 +111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       const data = await fetchRepositories(token);
       setRepos(data);
       // Cache the repos for instant display on next visit
-      setCache(CacheKeys.repos(), data);
+      setCache(CacheKeys.repos(), data, accountId);
       
       // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
@@ -99,7 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       
       for (const repo of reposToShow) {
         const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
-        const cachedIssues = getCached<Issue[]>(cacheKey);
+        const cachedIssues = getCached<Issue[]>(cacheKey, accountId);
         
         if (cachedIssues) {
           // Reuse cached issues - filter to actual issues (not PRs) and take first 3
@@ -119,13 +139,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [token, repos.length]);
+  }, [token, repos.length, accountId]);
 
   useEffect(() => {
-    // Always fetch fresh data on mount, but show cached immediately
+    // Always fetch fresh data on mount or account change, but show cached immediately
     loadRepos(false);
     isInitialMount.current = false;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateRepo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,8 +228,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-             <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
-             <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
+            <AccountSwitcher
+              accounts={accounts}
+              currentAccount={currentAccount}
+              onSwitch={onSwitchAccount}
+              onAddAccount={onAddAccount}
+              onRemoveAccount={onRemoveAccount}
+            />
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

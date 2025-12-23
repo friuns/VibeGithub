@@ -11,19 +11,20 @@ interface RepoDetailProps {
   repo: Repository;
   onBack: () => void;
   onIssueSelect: (issue: Issue) => void;
+  accountId: string;
 }
 
-export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onIssueSelect }) => {
+export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onIssueSelect, accountId }) => {
   const { toasts, dismissToast, showError } = useToast();
   const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
   
   // Initialize from cache for instant display
   const [issues, setIssues] = useState<Issue[]>(() => {
-    return getCached<Issue[]>(cacheKey) || [];
+    return getCached<Issue[]>(cacheKey, accountId) || [];
   });
   const [loading, setLoading] = useState(() => {
     // Only show loading if no cached data
-    return !getCached<Issue[]>(cacheKey);
+    return !getCached<Issue[]>(cacheKey, accountId);
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,7 +59,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
       const data = await fetchIssues(token, repo.owner.login, repo.name);
       setIssues(data);
       // Cache the issues for instant display on next visit
-      setCache(cacheKey, data);
+      setCache(cacheKey, data, accountId);
     } catch (err) {
       console.error(err);
     } finally {
