@@ -3,13 +3,15 @@ import { validateToken } from '../services/githubService';
 import { signInWithGitHub } from '../services/firebaseService';
 import { GitHubUser } from '../types';
 import { Button } from '../components/Button';
-import { Github } from 'lucide-react';
+import { Github, ArrowLeft } from 'lucide-react';
 
 interface TokenGateProps {
   onSuccess: (token: string, user: GitHubUser) => void;
+  hasAccounts?: boolean;
+  onBack?: () => void;
 }
 
-export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
+export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess, hasAccounts, onBack }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,22 +20,17 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
     setLoading(true);
     
     try {
-      // Sign in with GitHub via Firebase
       const { accessToken } = await signInWithGitHub();
-      
-      // Validate token and get user data from GitHub API
       const user = await validateToken(accessToken);
       onSuccess(accessToken, user);
     } catch (err: unknown) {
       console.error('GitHub login error:', err);
       const message = err instanceof Error ? err.message : 'Failed to sign in with GitHub';
-      // Handle common Firebase auth errors
       if (message.includes('popup-closed-by-user')) {
         setError('Sign in was cancelled. Please try again.');
       } else if (message.includes('account-exists-with-different-credential')) {
         setError('An account already exists with the same email. Try signing in with a different method.');
       } else if (message.includes('Redirecting')) {
-        // Popup was blocked, redirecting to GitHub - don't show error
         setError('');
         return;
       } else if (message.includes('popup-blocked') || message.includes('popup_blocked')) {
@@ -54,9 +51,13 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
           <div className="bg-slate-900 dark:bg-slate-700 p-3 rounded-full mb-4 text-white">
             <Github size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome to GitGenius</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {hasAccounts ? 'Add another account' : 'Welcome to GitGenius'}
+          </h1>
           <p className="text-slate-500 dark:text-slate-400 text-center mt-2">
-            Sign in with your GitHub account to manage your repositories with AI assistance.
+            {hasAccounts
+              ? 'Sign in with a different GitHub account to add it to your profile.'
+              : 'Sign in with your GitHub account to manage your repositories with AI assistance.'}
           </p>
         </div>
 
@@ -67,19 +68,28 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
             </div>
           )}
 
-          <Button 
-            onClick={handleGitHubLogin} 
-            className="w-full" 
-            isLoading={loading} 
-            variant="primary"
-          >
-            <Github className="mr-2" size={20} />
-            Sign in with GitHub
-          </Button>
+          <div className={`grid ${hasAccounts ? 'grid-cols-2 gap-3' : 'grid-cols-1'}`}>
+            {hasAccounts && onBack && (
+              <Button onClick={onBack} variant="secondary" icon={<ArrowLeft size={16} />}>
+                Back
+              </Button>
+            )}
+            <Button
+              onClick={handleGitHubLogin}
+              className="w-full"
+              isLoading={loading}
+              variant="primary"
+            >
+              <Github className="mr-2" size={20} />
+              Sign in with GitHub
+            </Button>
+          </div>
 
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-            By signing in, you grant access to your public and private repositories.
-          </p>
+          {!hasAccounts && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
+              By signing in, you grant access to your public and private repositories.
+            </p>
+          )}
         </div>
       </div>
     </div>
