@@ -28,17 +28,12 @@ jobs:
             console.log(`Found ${pendingRuns.total_count} pending workflow runs`);
             
             for (const run of pendingRuns.workflow_runs) {
-              try {
-                // Approve the pending deployment
-                await github.rest.actions.approveWorkflowRun({
-                  owner,
-                  repo,
-                  run_id: run.id,
-                });
-                console.log(`Approved workflow run: ${run.id} (${run.name})`);
-              } catch (error) {
-                console.log(`Failed to approve run ${run.id}: ${error.message}`);
-              }
+              await github.rest.actions.approveWorkflowRun({
+                owner,
+                repo,
+                run_id: run.id,
+              });
+              console.log(`Approved workflow run: ${run.id} (${run.name})`);
             }
 
       - name: Approve pending deployments
@@ -58,31 +53,25 @@ jobs:
             console.log(`Found ${runs.total_count} workflow runs waiting for deployment approval`);
             
             for (const run of runs.workflow_runs) {
-              try {
-                // Get pending deployments for this run
-                const { data: deployments } = await github.rest.actions.getPendingDeploymentsForRun({
+              const { data: deployments } = await github.rest.actions.getPendingDeploymentsForRun({
+                owner,
+                repo,
+                run_id: run.id,
+              });
+              
+              if (deployments.length > 0) {
+                const environmentIds = deployments.map(d => d.environment.id);
+                
+                await github.rest.actions.reviewPendingDeploymentsForRun({
                   owner,
                   repo,
                   run_id: run.id,
+                  environment_ids: environmentIds,
+                  state: 'approved',
+                  comment: 'Auto-approved by workflow',
                 });
                 
-                if (deployments.length > 0) {
-                  const environmentIds = deployments.map(d => d.environment.id);
-                  
-                  // Approve all pending deployments
-                  await github.rest.actions.reviewPendingDeploymentsForRun({
-                    owner,
-                    repo,
-                    run_id: run.id,
-                    environment_ids: environmentIds,
-                    state: 'approved',
-                    comment: 'Auto-approved by workflow',
-                  });
-                  
-                  console.log(`Approved deployments for run ${run.id}: ${environmentIds.join(', ')}`);
-                }
-              } catch (error) {
-                console.log(`Failed to approve deployments for run ${run.id}: ${error.message}`);
+                console.log(`Approved deployments for run ${run.id}: ${environmentIds.join(', ')}`);
               }
             }
 
