@@ -1,5 +1,6 @@
 import { GITHUB_API_BASE } from '../constants';
-import { Repository, Issue, GitHubUser, IssueDraft, RepoDraft, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus, WorkflowFile } from '../types';
+import { Repository, Issue, GitHubUser, IssueDraft, RepoDraft, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus, WorkflowFile, RepoPublicKey, RepoSecret } from '../types';
+import _sodium from 'libsodium-wrappers';
 
 export const validateToken = async (token: string): Promise<GitHubUser> => {
   const response = await fetch(`${GITHUB_API_BASE}/user`, {
@@ -321,4 +322,146 @@ export const fetchAllWorkflowFiles = async (
   }
 
   return allWorkflows;
+};
+
+// ============ Repository Secrets API ============
+
+/**
+ * Fetch the public key for a repository (needed to encrypt secrets)
+ */
+export const fetchRepoPublicKey = async (
+  token: string,
+  owner: string,
+  repo: string
+): Promise<RepoPublicKey> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/secrets/public-key`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      cache: 'no-cache',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch repository public key');
+  }
+
+  return response.json();
+};
+
+/**
+ * Encrypt a secret value using the repository's public key
+ * Uses libsodium sealed box encryption as required by GitHub
+ */
+export const encryptSecret = async (publicKey: string, secretValue: string): Promise<string> => {
+  // Ensure libsodium is ready
+  await _sodium.ready;
+  const sodium = _sodium;
+  
+  // Decode the public key from base64
+  const publicKeyBytes = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
+  
+  // Encode the secret value as bytes
+  const messageBytes = sodium.from_string(secretValue);
+  
+  // Encrypt using sealed box
+  const encryptedBytes = sodium.crypto_box_seal(messageBytes, publicKeyBytes);
+  
+  // Return as base64
+  return sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
+};
+
+/**
+ * Create or update a repository secret
+ */
+export const setRepositorySecret = async (
+  token: string,
+  owner: string,
+  repo: string,
+  secretName: string,
+  secretValue: string
+): Promise<void> => {
+  // First, get the repository's public key
+  const publicKey = await fetchRepoPublicKey(token, owner, repo);
+  
+  // Encrypt the secret value
+  const encryptedValue = await encryptSecret(publicKey.key, secretValue);
+  
+  // Create or update the secret
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/secrets/${secretName}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        encrypted_value: encryptedValue,
+        key_id: publicKey.key_id,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to set repository secret');
+  }
+};
+
+/**
+ * List repository secrets (names only, values are not returned)
+ */
+export const fetchRepositorySecrets = async (
+  token: string,
+  owner: string,
+  repo: string
+): Promise<RepoSecret[]> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/secrets`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      cache: 'no-cache',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch repository secrets');
+  }
+
+  const data = await response.json();
+  return data.secrets || [];
+};
+
+/**
+ * Delete a repository secret
+ */
+export const deleteRepositorySecret = async (
+  token: string,
+  owner: string,
+  repo: string,
+  secretName: string
+): Promise<void> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/secrets/${secretName}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to delete repository secret');
+  }
 };

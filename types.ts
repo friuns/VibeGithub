@@ -164,6 +164,17 @@ export interface WorkflowFile {
   repoFullName: string;
 }
 
+export interface RepoPublicKey {
+  key_id: string;
+  key: string;
+}
+
+export interface RepoSecret {
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export enum AppRoute {
   TOKEN_INPUT = 'TOKEN_INPUT',
   REPO_LIST = 'REPO_LIST',

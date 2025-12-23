@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Repository, Issue, WorkflowFile } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles } from '../services/githubService';
+import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret } from '../services/githubService';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
-import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface RepoDetailProps {
@@ -40,6 +40,17 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   });
   const [loadingWorkflows, setLoadingWorkflows] = useState(false);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(false);
+
+  // Secrets State
+  const [secrets, setSecrets] = useState<RepoSecret[]>([]);
+  const [loadingSecrets, setLoadingSecrets] = useState(false);
+  const [isSecretsModalOpen, setIsSecretsModalOpen] = useState(false);
+  const [newSecretName, setNewSecretName] = useState('');
+  const [newSecretValue, setNewSecretValue] = useState('');
+  const [showSecretValue, setShowSecretValue] = useState(false);
+  const [savingSecret, setSavingSecret] = useState(false);
+  const [deletingSecret, setDeletingSecret] = useState<string | null>(null);
+  const [autoSetOAuthChecked, setAutoSetOAuthChecked] = useState(false);
 
   // Filter out pull requests from the main list
   const issuesOnly = issues.filter(issue => !issue.pull_request);
@@ -151,6 +162,69 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   };
 
+  // Secrets functions
+  const loadSecrets = React.useCallback(async () => {
+    setLoadingSecrets(true);
+    try {
+      const data = await fetchRepositorySecrets(token, repo.owner.login, repo.name);
+      setSecrets(data);
+    } catch (err) {
+      console.error('Failed to load secrets:', err);
+    } finally {
+      setLoadingSecrets(false);
+    }
+  }, [token, repo]);
+
+  // Load secrets when modal opens
+  useEffect(() => {
+    if (isSecretsModalOpen) {
+      loadSecrets();
+    }
+  }, [isSecretsModalOpen, loadSecrets]);
+
+  const handleAddSecret = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSecretName || !newSecretValue) return;
+
+    setSavingSecret(true);
+    try {
+      await setRepositorySecret(token, repo.owner.login, repo.name, newSecretName.toUpperCase(), newSecretValue);
+      setNewSecretName('');
+      setNewSecretValue('');
+      setShowSecretValue(false);
+      await loadSecrets();
+    } catch (err) {
+      showError('Failed to add secret. Make sure your token has "repo" scope.');
+    } finally {
+      setSavingSecret(false);
+    }
+  };
+
+  const handleDeleteSecret = async (secretName: string) => {
+    setDeletingSecret(secretName);
+    try {
+      await deleteRepositorySecret(token, repo.owner.login, repo.name, secretName);
+      await loadSecrets();
+    } catch (err) {
+      showError('Failed to delete secret');
+    } finally {
+      setDeletingSecret(null);
+    }
+  };
+
+  const handleAutoSetOAuthToken = async () => {
+    setAutoSetOAuthChecked(true);
+    setSavingSecret(true);
+    try {
+      await setRepositorySecret(token, repo.owner.login, repo.name, 'OAUTH_TOKEN', token);
+      await loadSecrets();
+    } catch (err) {
+      showError('Failed to set OAUTH_TOKEN');
+    } finally {
+      setSavingSecret(false);
+    }
+  };
+
 
 
   return (
@@ -173,6 +247,9 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
              )}
              <Button variant="secondary" onClick={() => loadIssues(true)} icon={<RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />} disabled={isRefreshing}>
                Refresh
+             </Button>
+             <Button variant="secondary" onClick={() => setIsSecretsModalOpen(true)} icon={<Key size={16} />}>
+               Secrets
              </Button>
              <Button variant="primary" icon={<Plus size={18} />} onClick={() => setIsModalOpen(true)}>
                 New Issue
@@ -359,6 +436,143 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
                     <Button type="submit" variant="primary" isLoading={creating}>Submit Issue</Button>
                  </div>
               </form>
+           </div>
+        </div>
+      )}
+
+      {/* Secrets Modal */}
+      {isSecretsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-full">
+                     <Shield size={20} className="text-emerald-600 dark:text-emerald-400" />
+                   </div>
+                   <div>
+                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Repository Secrets</h2>
+                     <p className="text-sm text-slate-500 dark:text-slate-400">Manage secrets for GitHub Actions</p>
+                   </div>
+                 </div>
+                 <button onClick={() => setIsSecretsModalOpen(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
+                   <X size={24} />
+                 </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                 {/* Quick Action: Auto-set OAUTH_TOKEN */}
+                 <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Key size={20} className="text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <p className="font-medium text-slate-800 dark:text-slate-100">Auto-set OAUTH_TOKEN</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">Use your current token as a secret for Actions</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleAutoSetOAuthToken}
+                        isLoading={savingSecret && autoSetOAuthChecked}
+                        disabled={secrets.some(s => s.name === 'OAUTH_TOKEN')}
+                      >
+                        {secrets.some(s => s.name === 'OAUTH_TOKEN') ? 'Already Set' : 'Set Token'}
+                      </Button>
+                    </div>
+                 </div>
+
+                 {/* Add New Secret Form */}
+                 <form onSubmit={handleAddSecret} className="space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Add New Secret</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Secret Name</label>
+                        <input
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono uppercase"
+                          value={newSecretName}
+                          onChange={e => setNewSecretName(e.target.value.replace(/[^A-Za-z0-9_]/g, '_'))}
+                          placeholder="MY_SECRET_KEY"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Secret Value</label>
+                        <div className="relative">
+                          <input
+                            type={showSecretValue ? 'text' : 'password'}
+                            className="w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono"
+                            value={newSecretValue}
+                            onChange={e => setNewSecretValue(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSecretValue(!showSecretValue)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                          >
+                            {showSecretValue ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="submit" variant="primary" isLoading={savingSecret && !autoSetOAuthChecked} icon={<Plus size={16} />}>
+                        Add Secret
+                      </Button>
+                    </div>
+                 </form>
+
+                 {/* Existing Secrets List */}
+                 <div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-3">Existing Secrets</h3>
+                    {loadingSecrets ? (
+                      <div className="flex items-center justify-center py-8">
+                        <RefreshCw size={20} className="text-slate-400 animate-spin" />
+                        <span className="ml-2 text-slate-500 dark:text-slate-400">Loading secrets...</span>
+                      </div>
+                    ) : secrets.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+                        No secrets configured yet
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {secrets.map(secret => (
+                          <div
+                            key={secret.name}
+                            className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Key size={16} className="text-emerald-600 dark:text-emerald-400" />
+                              <div>
+                                <span className="font-mono font-medium text-slate-800 dark:text-slate-100">{secret.name}</span>
+                                <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+                                  Updated {new Date(secret.updated_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteSecret(secret.name)}
+                              disabled={deletingSecret === secret.name}
+                              className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              {deletingSecret === secret.name ? (
+                                <RefreshCw size={16} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+
+                 <div className="pt-4 flex justify-end">
+                    <Button type="button" variant="ghost" onClick={() => setIsSecretsModalOpen(false)}>Close</Button>
+                 </div>
+              </div>
            </div>
         </div>
       )}

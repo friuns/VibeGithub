@@ -37,11 +37,11 @@ export interface GitHubAuthResult {
 export const signInWithGitHub = async (): Promise<GitHubAuthResult> => {
   try {
     // Try popup first
-    const result = await signInWithPopup(auth, githubProvider);
-    const credential = GithubAuthProvider.credentialFromResult(result) as OAuthCredential;
-    
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get GitHub access token');
+  const result = await signInWithPopup(auth, githubProvider);
+  const credential = GithubAuthProvider.credentialFromResult(result) as OAuthCredential;
+  
+  if (!credential?.accessToken) {
+    throw new Error('Failed to get GitHub access token');
     }
 
     return {
