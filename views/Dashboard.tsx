@@ -129,10 +129,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, accounts, cur
   }, [token, repos.length]);
 
   useEffect(() => {
-    // Always fetch fresh data on mount, but show cached immediately
+    // Always fetch fresh data when accountId changes, but show cached immediately
     loadRepos(false);
     isInitialMount.current = false;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
