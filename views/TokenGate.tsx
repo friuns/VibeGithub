@@ -51,7 +51,7 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess, isAddingAccount
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 p-8 border border-slate-200 dark:border-slate-700">
+      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 p-8 border border-slate-200 dark:border-slate-700 relative">
         {isAddingAccount && onCancel && (
           <button
             onClick={onCancel}

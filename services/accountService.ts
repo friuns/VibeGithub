@@ -83,14 +83,15 @@ export function addAccount(token: string, user: GitHubUser): Account {
   }
   
   // Save accounts
+  const activeId = getActiveAccountId();
   const data: AccountsData = {
     accounts,
-    activeAccountId: getActiveAccountId() || accountId,
+    activeAccountId: activeId || accountId,
   };
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(data));
   
   // If this is the first account or no active account, make it active
-  if (!getActiveAccountId()) {
+  if (!activeId) {
     setActiveAccount(accountId);
   }
   

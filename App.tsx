@@ -20,7 +20,7 @@ import {
 
 const App: React.FC = () => {
   // Migrate old single-account data on first load
-  React.useEffect(() => {
+  useEffect(() => {
     migrateOldAccountData();
   }, []);
 
