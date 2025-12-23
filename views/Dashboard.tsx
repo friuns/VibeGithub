@@ -1,21 +1,37 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Repository, GitHubUser, RepoDraft, Issue } from '../types';
+import { Repository, GitHubUser, RepoDraft, Issue, Account } from '../types';
 import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret } from '../services/githubService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { AccountSwitcher } from '../components/AccountSwitcher';
 import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface DashboardProps {
   token: string;
   user: GitHubUser;
+  accounts: Account[];
+  activeAccount: Account;
   onRepoSelect: (repo: Repository) => void;
   onLogout: () => void | Promise<void>;
+  onSwitchAccount: (accountId: string) => void;
+  onAddAccount: () => void;
+  onRemoveAccount: (accountId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  token, 
+  user, 
+  accounts,
+  activeAccount,
+  onRepoSelect, 
+  onLogout,
+  onSwitchAccount,
+  onAddAccount,
+  onRemoveAccount,
+}) => {
   const { toasts, dismissToast, showError } = useToast();
   
   // Initialize from cache for instant display
@@ -222,14 +238,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       {/* Header */}
       <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-             <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
-             <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
-          </div>
+          <AccountSwitcher
+            accounts={accounts}
+            activeAccount={activeAccount}
+            onSwitchAccount={onSwitchAccount}
+            onAddAccount={onAddAccount}
+            onRemoveAccount={onRemoveAccount}
+          />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" onClick={onLogout} icon={<LogOut size={16} />}>
-              Sign Out
+              Sign Out All
             </Button>
           </div>
         </div>

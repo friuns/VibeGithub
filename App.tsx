@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GitHubUser, Repository, Issue, AppRoute } from './types';
+import { GitHubUser, Repository, Issue, AppRoute, Account } from './types';
 import { TokenGate } from './views/TokenGate';
 import { Dashboard } from './views/Dashboard';
 import { RepoDetail } from './views/RepoDetail';
@@ -7,16 +7,27 @@ import { IssueDetail } from './views/IssueDetail';
 import { signOutFromFirebase, handleRedirectResult } from './services/firebaseService';
 import { validateToken } from './services/githubService';
 import { ThemeProvider } from './contexts/ThemeContext';
+import {
+  getAllAccounts,
+  addAccount,
+  removeAccount,
+  getActiveAccount,
+  setActiveAccount,
+  migrateLegacyAccount,
+} from './services/accountService';
 
 const App: React.FC = () => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('gh_token'));
-  const [user, setUser] = useState<GitHubUser | null>(
-    localStorage.getItem('gh_user') ? JSON.parse(localStorage.getItem('gh_user')!) : null
-  );
+  // Migrate legacy single account on first load
+  useEffect(() => {
+    migrateLegacyAccount();
+  }, []);
+
+  const [accounts, setAccounts] = useState<Account[]>(() => getAllAccounts());
+  const [activeAccount, setActiveAccountState] = useState<Account | null>(() => getActiveAccount());
   const [checkingRedirect, setCheckingRedirect] = useState(true);
 
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(
-    token && user ? AppRoute.REPO_LIST : AppRoute.TOKEN_INPUT
+    activeAccount ? AppRoute.REPO_LIST : AppRoute.TOKEN_INPUT
   );
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -42,11 +53,36 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = (newToken: string, newUser: GitHubUser) => {
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('gh_token', newToken);
-    localStorage.setItem('gh_user', JSON.stringify(newUser));
+    const account = addAccount(newToken, newUser);
+    setActiveAccount(account.id);
+    setAccounts(getAllAccounts());
+    setActiveAccountState(account);
     setCurrentRoute(AppRoute.REPO_LIST);
+  };
+
+  const handleSwitchAccount = (accountId: string) => {
+    setActiveAccount(accountId);
+    const account = getActiveAccount();
+    setActiveAccountState(account);
+    setCurrentRoute(AppRoute.REPO_LIST);
+    // Reset navigation state when switching accounts
+    setSelectedRepo(null);
+    setSelectedIssue(null);
+  };
+
+  const handleRemoveAccount = (accountId: string) => {
+    removeAccount(accountId);
+    const updatedAccounts = getAllAccounts();
+    setAccounts(updatedAccounts);
+    
+    // If we removed the active account, switch to another or logout
+    if (activeAccount?.id === accountId) {
+      if (updatedAccounts.length > 0) {
+        handleSwitchAccount(updatedAccounts[0].id);
+      } else {
+        handleLogout();
+      }
+    }
   };
 
   const handleLogout = async () => {
@@ -57,10 +93,8 @@ const App: React.FC = () => {
       console.error('Firebase sign out error:', err);
     }
     
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('gh_token');
-    localStorage.removeItem('gh_user');
+    setAccounts([]);
+    setActiveAccountState(null);
     setCurrentRoute(AppRoute.TOKEN_INPUT);
     setSelectedRepo(null);
   };
@@ -95,14 +129,14 @@ const App: React.FC = () => {
     );
   }
 
-  if (currentRoute === AppRoute.TOKEN_INPUT || !token || !user) {
+  if (currentRoute === AppRoute.TOKEN_INPUT || !activeAccount) {
     return <TokenGate onSuccess={handleLogin} />;
   }
 
   if (currentRoute === AppRoute.ISSUE_DETAIL && selectedRepo && selectedIssue) {
     return (
       <IssueDetail
-        token={token}
+        token={activeAccount.token}
         repo={selectedRepo}
         issue={selectedIssue}
         onBack={navigateBackToRepo}
@@ -113,7 +147,7 @@ const App: React.FC = () => {
   if (currentRoute === AppRoute.REPO_DETAIL && selectedRepo) {
     return (
       <RepoDetail
-        token={token}
+        token={activeAccount.token}
         repo={selectedRepo}
         onBack={navigateBack}
         onIssueSelect={navigateToIssue}
@@ -123,10 +157,15 @@ const App: React.FC = () => {
 
   return (
     <Dashboard
-      token={token}
-      user={user}
+      token={activeAccount.token}
+      user={activeAccount.user}
+      accounts={accounts}
+      activeAccount={activeAccount}
       onRepoSelect={navigateToRepo}
       onLogout={handleLogout}
+      onSwitchAccount={handleSwitchAccount}
+      onAddAccount={() => setCurrentRoute(AppRoute.TOKEN_INPUT)}
+      onRemoveAccount={handleRemoveAccount}
     />
   );
 };
