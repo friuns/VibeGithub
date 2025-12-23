@@ -73,7 +73,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveAccount = (accountId: string) => {
-    // Clear cached data for this account
+    // Clear all cached data for this account
     clearCache(undefined, accountId);
     
     removeAccount(accountId);

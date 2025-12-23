@@ -56,10 +56,26 @@ export function isCacheFresh(key: string, ttl = DEFAULT_TTL): boolean {
 }
 
 export function clearCache(key?: string, accountId?: string): void {
-  if (key) {
-    const accId = accountId || getCurrentAccountId();
+  if (key && accountId) {
+    // Clear specific key for specific account
+    const scopedKey = `${accountId}_${key}`;
+    localStorage.removeItem(CACHE_PREFIX + scopedKey);
+  } else if (key) {
+    // Clear specific key for current account
+    const accId = getCurrentAccountId();
     const scopedKey = `${accId}_${key}`;
     localStorage.removeItem(CACHE_PREFIX + scopedKey);
+  } else if (accountId) {
+    // Clear all keys for specific account
+    const prefix = CACHE_PREFIX + accountId + '_';
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix)) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
   } else {
     // Clear all cache entries
     const keysToRemove: string[] = [];
