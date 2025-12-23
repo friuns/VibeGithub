@@ -7,7 +7,7 @@ const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes - data considered "fresh" within
 // Get the current account ID for cache scoping
 function getCurrentAccountId(): string {
   const activeAccountId = localStorage.getItem('gh_active_account_id');
-  return activeAccountId || 'default';
+  return activeAccountId || '__no_account__';
 }
 
 interface CacheEntry<T> {
