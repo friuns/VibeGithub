@@ -56,6 +56,7 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess, isAddingAccount
           <button
             onClick={onCancel}
             className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+            aria-label="Cancel adding account"
           >
             <X size={24} />
           </button>

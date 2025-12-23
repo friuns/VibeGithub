@@ -120,6 +120,11 @@ const App: React.FC = () => {
     setCurrentRoute(AppRoute.TOKEN_INPUT);
   };
 
+  const handleCancelAddAccount = () => {
+    setAddingAccount(false);
+    setCurrentRoute(AppRoute.REPO_LIST);
+  };
+
   const navigateToRepo = (repo: Repository) => {
     setSelectedRepo(repo);
     setCurrentRoute(AppRoute.REPO_DETAIL);
@@ -151,10 +156,11 @@ const App: React.FC = () => {
   }
 
   if (currentRoute === AppRoute.TOKEN_INPUT || !currentAccount) {
-    return <TokenGate onSuccess={handleLogin} isAddingAccount={addingAccount} onCancel={addingAccount ? () => {
-      setAddingAccount(false);
-      setCurrentRoute(AppRoute.REPO_LIST);
-    } : undefined} />;
+    return <TokenGate 
+      onSuccess={handleLogin} 
+      isAddingAccount={addingAccount} 
+      onCancel={addingAccount ? handleCancelAddAccount : undefined} 
+    />;
   }
 
   if (currentRoute === AppRoute.ISSUE_DETAIL && selectedRepo && selectedIssue) {

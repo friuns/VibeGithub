@@ -137,7 +137,15 @@ export function setActiveAccount(accountId: string): boolean {
     return false;
   }
   
+  // Update both the separate active account key and the accounts data structure
   localStorage.setItem(ACTIVE_ACCOUNT_KEY, accountId);
+  
+  const data: AccountsData = {
+    accounts,
+    activeAccountId: accountId,
+  };
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(data));
+  
   return true;
 }
 
@@ -145,11 +153,14 @@ export function setActiveAccount(accountId: string): boolean {
  * Clear all accounts
  */
 export function clearAllAccounts(): void {
+  // Get accounts before clearing to properly clear caches
+  const accounts = getAccounts();
+  
+  // Clear storage
   localStorage.removeItem(ACCOUNTS_KEY);
   localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
   
   // Clear all account caches
-  const accounts = getAccounts();
   accounts.forEach(acc => clearAccountCache(acc.id));
 }
 
