@@ -14,7 +14,9 @@ import {
   getActiveAccount,
   setActiveAccount,
   migrateLegacyAccount,
+  clearAllAccounts,
 } from './services/accountService';
+import { clearCache } from './services/cacheService';
 
 const App: React.FC = () => {
   // Migrate legacy single account on first load
@@ -71,6 +73,9 @@ const App: React.FC = () => {
   };
 
   const handleRemoveAccount = (accountId: string) => {
+    // Clear cached data for this account
+    clearCache(undefined, accountId);
+    
     removeAccount(accountId);
     const updatedAccounts = getAllAccounts();
     setAccounts(updatedAccounts);
@@ -92,6 +97,10 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Firebase sign out error:', err);
     }
+    
+    // Clear all accounts and cached data
+    clearAllAccounts();
+    clearCache();
     
     setAccounts([]);
     setActiveAccountState(null);
