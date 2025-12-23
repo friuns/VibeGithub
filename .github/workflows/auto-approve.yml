@@ -18,7 +18,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             
-            // Get pending workflow runs
+            // Get pending workflow runs that need approval
             const { data: pendingRuns } = await github.rest.actions.listWorkflowRunsForRepo({
               owner,
               repo,
@@ -29,6 +29,7 @@ jobs:
             
             for (const run of pendingRuns.workflow_runs) {
               try {
+                // Try to approve (works for fork PRs)
                 await github.rest.actions.approveWorkflowRun({
                   owner,
                   repo,
@@ -36,9 +37,18 @@ jobs:
                 });
                 console.log(`Approved workflow run: ${run.id} (${run.name})`);
               } catch (error) {
-                // This API only works for fork PRs - skip if not applicable
+                // For non-fork PRs, rerun the workflow instead
                 if (error.message.includes('not from a fork pull request')) {
-                  console.log(`Skipping run ${run.id} (${run.name}): not from a fork PR`);
+                  try {
+                    await github.rest.actions.reRunWorkflow({
+                      owner,
+                      repo,
+                      run_id: run.id,
+                    });
+                    console.log(`Reran workflow run: ${run.id} (${run.name})`);
+                  } catch (rerunError) {
+                    console.error(`Failed to rerun ${run.id}: ${rerunError.message}`);
+                  }
                 } else {
                   console.error(`Failed to approve run ${run.id}: ${error.message}`);
                 }
