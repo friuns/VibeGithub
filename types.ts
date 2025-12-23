@@ -4,6 +4,11 @@ export interface GitHubUser {
   name: string;
 }
 
+export interface Account {
+  user: GitHubUser;
+  token: string;
+}
+
 export interface Repository {
   id: number;
   name: string;

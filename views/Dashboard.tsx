@@ -1,89 +1,90 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Repository, GitHubUser, RepoDraft, Issue } from '../types';
+import { Repository, RepoDraft, Issue, Account } from '../types';
 import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret } from '../services/githubService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key } from 'lucide-react';
+import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key, UserPlus, Users, Check, ChevronDown } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface DashboardProps {
-  token: string;
-  user: GitHubUser;
+  activeAccount: Account;
+  accounts: Account[];
   onRepoSelect: (repo: Repository) => void;
   onLogout: () => void | Promise<void>;
+  onSwitchAccount: (login: string) => void;
+  onAddNewAccount: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({
+  activeAccount,
+  accounts,
+  onRepoSelect,
+  onLogout,
+  onSwitchAccount,
+  onAddNewAccount
+}) => {
   const { toasts, dismissToast, showError } = useToast();
-  
-  // Initialize from cache for instant display
-  const [repos, setRepos] = useState<Repository[]>(() => {
-    return getCached<Repository[]>(CacheKeys.repos()) || [];
-  });
-  const [loading, setLoading] = useState(() => {
-    // Only show loading if no cached data
-    return !getCached<Repository[]>(CacheKeys.repos());
-  });
+  const token = activeAccount.token;
+  const user = activeAccount.user;
+
+  const [repos, setRepos] = useState<Repository[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [pinnedRepoIds, setPinnedRepoIds] = useState<Set<number>>(() => {
-    const saved = localStorage.getItem('pinnedRepos');
+    const saved = localStorage.getItem(`pinnedRepos_${user.login}`);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
-  // Initialize issues from cache for instant display
-  const [repoIssues, setRepoIssues] = useState<Record<number, Issue[]>>(() => {
-    const cachedRepos = getCached<Repository[]>(CacheKeys.repos());
-    if (!cachedRepos) return {};
-    
-    const issuesMap: Record<number, Issue[]> = {};
-    for (const repo of cachedRepos.slice(0, 4)) {
-      const cachedIssues = getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name));
-      if (cachedIssues) {
-        issuesMap[repo.id] = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
-      }
-    }
-    return issuesMap;
-  });
-  const isInitialMount = useRef(true);
+  const [repoIssues, setRepoIssues] = useState<Record<number, Issue[]>>({});
   
-  // Create Repo Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newRepo, setNewRepo] = useState<RepoDraft>({
-    name: '',
-    description: '',
-    private: false,
-    auto_init: true
-  });
+  const [newRepo, setNewRepo] = useState<RepoDraft>({ name: '', description: '', private: false, auto_init: true });
   const [autoSetOAuthToken, setAutoSetOAuthToken] = useState(true);
 
-  // Delete Repo Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [repoToDelete, setRepoToDelete] = useState<Repository | null>(null);
 
-  // Close modals on Escape key
+  const [isAccountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
+  const accountSwitcherRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountSwitcherRef.current && !accountSwitcherRef.current.contains(event.target as Node)) {
+        setAccountSwitcherOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isDeleteModalOpen) closeDeleteModal();
         if (isCreateModalOpen) setIsCreateModalOpen(false);
+        if (isAccountSwitcherOpen) setAccountSwitcherOpen(false);
       }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isDeleteModalOpen, isCreateModalOpen]);
+  }, [isDeleteModalOpen, isCreateModalOpen, isAccountSwitcherOpen]);
 
   const loadRepos = React.useCallback(async (isManualRefresh = false) => {
-    const hasCachedData = repos.length > 0;
+    const cacheKey = CacheKeys.repos(user.login);
+    const cachedRepos = getCached<Repository[]>(cacheKey);
     
-    // Show full loading only on first load with no cache
-    // Otherwise show subtle refresh indicator
-    if (!hasCachedData) {
+    if (cachedRepos) {
+      setRepos(cachedRepos);
+      setLoading(false);
+    } else {
       setLoading(true);
-    } else if (isManualRefresh) {
+    }
+
+    if (isManualRefresh) {
       setIsRefreshing(true);
     }
     
@@ -91,42 +92,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     try {
       const data = await fetchRepositories(token);
       setRepos(data);
-      // Cache the repos for instant display on next visit
-      setCache(CacheKeys.repos(), data);
+      setCache(cacheKey, data);
       
-      // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
       const issuesMap: Record<number, Issue[]> = {};
       
       for (const repo of reposToShow) {
-        const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
-        const cachedIssues = getCached<Issue[]>(cacheKey);
-        
+        const issuesCacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
+        const cachedIssues = getCached<Issue[]>(issuesCacheKey);
         if (cachedIssues) {
-          // Reuse cached issues - filter to actual issues (not PRs) and take first 3
-          const actualIssues = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
-          issuesMap[repo.id] = actualIssues;
+          issuesMap[repo.id] = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
         }
-        // If not cached, leave empty - issues will be cached when user visits repo detail
       }
-      
       setRepoIssues(issuesMap);
     } catch (err) {
-      // Only show error if we don't have cached data to display
-      if (!hasCachedData) {
+      if (!cachedRepos) {
         setError('Failed to load repositories.');
       }
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [token, repos.length]);
+  }, [token, user.login]);
 
   useEffect(() => {
-    // Always fetch fresh data on mount, but show cached immediately
     loadRepos(false);
-    isInitialMount.current = false;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Reset pinned repos for the new user
+    const saved = localStorage.getItem(`pinnedRepos_${user.login}`);
+    setPinnedRepoIds(saved ? new Set(JSON.parse(saved)) : new Set());
+  }, [user.login, loadRepos]);
 
   const handleCreateRepo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,26 +129,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     setIsCreating(true);
     try {
       const createdRepo = await createRepository(token, newRepo);
-      
-      // Auto-set OAUTH_TOKEN secret if checkbox is checked
       if (autoSetOAuthToken) {
         try {
-          // Small delay to ensure repo is fully created
           await new Promise(resolve => setTimeout(resolve, 500));
           await setRepositorySecret(token, createdRepo.owner.login, createdRepo.name, 'OAUTH_TOKEN', token);
         } catch (secretErr) {
           console.warn('Failed to auto-set OAUTH_TOKEN:', secretErr);
-          // Don't fail the whole operation if secret setting fails
         }
       }
-      
       setIsCreateModalOpen(false);
       setNewRepo({ name: '', description: '', private: false, auto_init: true });
       setAutoSetOAuthToken(true);
-      
-      // Manually add the new repo to the top of the list
       setRepos(prev => [createdRepo, ...prev]);
-      
     } catch (err) {
       showError("Failed to create repository. Note: You need 'repo' scope token permissions.");
     } finally {
@@ -175,10 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       await deleteRepository(token, repoToDelete.owner.login, repoToDelete.name);
       setIsDeleteModalOpen(false);
       setRepoToDelete(null);
-      
-      // Remove the repo from the list
       setRepos(prev => prev.filter(r => r.id !== repoToDelete.id));
-      
     } catch (err) {
       showError("Failed to delete repository. Note: You need 'delete_repo' scope token permissions.");
     } finally {
@@ -199,12 +182,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       } else {
         newSet.add(repo.id);
       }
-      localStorage.setItem('pinnedRepos', JSON.stringify([...newSet]));
+      localStorage.setItem(`pinnedRepos_${user.login}`, JSON.stringify([...newSet]));
       return newSet;
     });
   };
 
-  // Sort repos with pinned ones first
   const sortedRepos = React.useMemo(() => {
     return [...repos].sort((a, b) => {
       const aPinned = pinnedRepoIds.has(a.id);
@@ -219,18 +201,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-             <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
-             <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
+      <header className="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-20 border-b border-slate-200 dark:border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+          <div ref={accountSwitcherRef} className="relative">
+            <button
+              onClick={() => setAccountSwitcherOpen(!isAccountSwitcherOpen)}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" />
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{user.login}</span>
+              <ChevronDown size={16} className={`text-slate-500 dark:text-slate-400 transition-transform ${isAccountSwitcherOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isAccountSwitcherOpen && (
+              <div className="absolute top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 px-2">Signed in as</span>
+                  <div className="flex items-center gap-3 p-2 rounded-md">
+                    <img src={user.avatar_url} alt={user.login} className="w-8 h-8 rounded-full" />
+                    <span className="font-bold text-slate-800 dark:text-slate-100">{user.login}</span>
+                  </div>
+                </div>
+                <div className="p-2">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 px-2">Switch Account</span>
+                  <div className="mt-1 max-h-40 overflow-y-auto">
+                    {accounts.map(acc => (
+                      <button
+                        key={acc.user.login}
+                        onClick={() => { onSwitchAccount(acc.user.login); setAccountSwitcherOpen(false); }}
+                        className="w-full text-left flex items-center justify-between gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img src={acc.user.avatar_url} alt={acc.user.login} className="w-8 h-8 rounded-full" />
+                          <span className="font-medium text-slate-700 dark:text-slate-200">{acc.user.login}</span>
+                        </div>
+                        {acc.user.login === user.login && <Check size={16} className="text-blue-500" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-2 border-t border-slate-100 dark:border-slate-700">
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { onAddNewAccount(); setAccountSwitcherOpen(false); }} icon={<UserPlus size={16} />}>
+                    Add Account
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={onLogout} icon={<LogOut size={16} />}>
+                    Sign out {user.login}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" onClick={onLogout} icon={<LogOut size={16} />}>
-              Sign Out
-            </Button>
           </div>
         </div>
       </header>
