@@ -3,13 +3,15 @@ import { validateToken } from '../services/githubService';
 import { signInWithGitHub } from '../services/firebaseService';
 import { GitHubUser } from '../types';
 import { Button } from '../components/Button';
-import { Github } from 'lucide-react';
+import { Github, X } from 'lucide-react';
 
 interface TokenGateProps {
   onSuccess: (token: string, user: GitHubUser) => void;
+  isAddingAccount?: boolean;
+  onCancel?: () => void;
 }
 
-export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
+export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess, isAddingAccount = false, onCancel }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -50,13 +52,26 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
       <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 p-8 border border-slate-200 dark:border-slate-700">
+        {isAddingAccount && onCancel && (
+          <button
+            onClick={onCancel}
+            className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <X size={24} />
+          </button>
+        )}
+        
         <div className="flex flex-col items-center mb-6">
           <div className="bg-slate-900 dark:bg-slate-700 p-3 rounded-full mb-4 text-white">
             <Github size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome to GitGenius</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {isAddingAccount ? 'Add GitHub Account' : 'Welcome to GitGenius'}
+          </h1>
           <p className="text-slate-500 dark:text-slate-400 text-center mt-2">
-            Sign in with your GitHub account to manage your repositories with AI assistance.
+            {isAddingAccount 
+              ? 'Sign in with another GitHub account to add it to your workspace.'
+              : 'Sign in with your GitHub account to manage your repositories with AI assistance.'}
           </p>
         </div>
 
@@ -76,6 +91,16 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
             <Github className="mr-2" size={20} />
             Sign in with GitHub
           </Button>
+
+          {isAddingAccount && onCancel && (
+            <Button 
+              onClick={onCancel} 
+              className="w-full" 
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+          )}
 
           <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
             By signing in, you grant access to your public and private repositories.
