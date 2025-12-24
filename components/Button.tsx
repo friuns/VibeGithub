@@ -1,21 +1,20 @@
-import React from 'react';
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'magic';
   size?: 'sm' | 'md';
   isLoading?: boolean;
-  icon?: React.ReactNode;
+  icon?: any;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
-  variant = 'primary',
-  size = 'md',
-  className = '', 
-  isLoading = false,
-  icon,
-  ...props 
-}) => {
+export const Button = (props: ButtonProps) => {
+  const {
+    children,
+    variant = 'primary',
+    size = 'md',
+    className = '',
+    isLoading = false,
+    icon,
+    ...rest
+  } = props;
   const baseStyles = "inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed";
   
   const sizeStyles = {
@@ -32,10 +31,10 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <button 
+    <button
       className={`${baseStyles} ${sizeStyles[size]} ${variants[variant]} ${className}`}
-      disabled={isLoading || props.disabled}
-      {...props}
+      disabled={isLoading || rest.disabled}
+      {...rest}
     >
       {isLoading ? (
         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

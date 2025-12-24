@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { createEffect, onMount } from 'solid-js';
+import { createMutable } from 'solid-js/store';
 import { GitHubUser, Repository, Issue, AppRoute } from './types';
 import { TokenGate } from './views/TokenGate';
 import { Dashboard } from './views/Dashboard';
@@ -8,45 +9,47 @@ import { signOutFromFirebase, handleRedirectResult } from './services/firebaseSe
 import { validateToken } from './services/githubService';
 import { ThemeProvider } from './contexts/ThemeContext';
 
-const App: React.FC = () => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('gh_token'));
-  const [user, setUser] = useState<GitHubUser | null>(
-    localStorage.getItem('gh_user') ? JSON.parse(localStorage.getItem('gh_user')!) : null
-  );
-  const [checkingRedirect, setCheckingRedirect] = useState(true);
+const App = () => {
+  const state = createMutable({
+    token: localStorage.getItem('gh_token'),
+    user: localStorage.getItem('gh_user') ? JSON.parse(localStorage.getItem('gh_user')!) : null,
+    checkingRedirect: true,
+    currentRoute: AppRoute.TOKEN_INPUT as AppRoute,
+    selectedRepo: null as Repository | null,
+    selectedIssue: null as Issue | null,
+  });
 
-  const [currentRoute, setCurrentRoute] = useState<AppRoute>(
-    token && user ? AppRoute.REPO_LIST : AppRoute.TOKEN_INPUT
-  );
-  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  // Set initial route based on token and user
+  createEffect(() => {
+    if (state.token && state.user) {
+      state.currentRoute = AppRoute.REPO_LIST;
+    } else {
+      state.currentRoute = AppRoute.TOKEN_INPUT;
+    }
+  });
 
   // Handle redirect result from Firebase OAuth (for popup-blocked fallback)
-  useEffect(() => {
-    const checkRedirectResult = async () => {
-      try {
-        const result = await handleRedirectResult();
-        if (result) {
-          // Validate token and get user data from GitHub API
-          const ghUser = await validateToken(result.accessToken);
-          handleLogin(result.accessToken, ghUser);
-        }
-      } catch (err) {
-        console.error('Redirect result error:', err);
-      } finally {
-        setCheckingRedirect(false);
+  onMount(async () => {
+    try {
+      const result = await handleRedirectResult();
+      if (result) {
+        // Validate token and get user data from GitHub API
+        const ghUser = await validateToken(result.accessToken);
+        handleLogin(result.accessToken, ghUser);
       }
-    };
-    
-    checkRedirectResult();
-  }, []);
+    } catch (err) {
+      console.error('Redirect result error:', err);
+    } finally {
+      state.checkingRedirect = false;
+    }
+  });
 
   const handleLogin = (newToken: string, newUser: GitHubUser) => {
-    setToken(newToken);
-    setUser(newUser);
+    state.token = newToken;
+    state.user = newUser;
     localStorage.setItem('gh_token', newToken);
     localStorage.setItem('gh_user', JSON.stringify(newUser));
-    setCurrentRoute(AppRoute.REPO_LIST);
+    state.currentRoute = AppRoute.REPO_LIST;
   };
 
   const handleLogout = async () => {
@@ -56,34 +59,34 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Firebase sign out error:', err);
     }
-    
-    setToken(null);
-    setUser(null);
+
+    state.token = null;
+    state.user = null;
     localStorage.removeItem('gh_token');
     localStorage.removeItem('gh_user');
-    setCurrentRoute(AppRoute.TOKEN_INPUT);
-    setSelectedRepo(null);
+    state.currentRoute = AppRoute.TOKEN_INPUT;
+    state.selectedRepo = null;
   };
 
   const navigateToRepo = (repo: Repository) => {
-    setSelectedRepo(repo);
-    setCurrentRoute(AppRoute.REPO_DETAIL);
+    state.selectedRepo = repo;
+    state.currentRoute = AppRoute.REPO_DETAIL;
   };
 
   const navigateBack = () => {
-    setSelectedRepo(null);
-    setSelectedIssue(null);
-    setCurrentRoute(AppRoute.REPO_LIST);
+    state.selectedRepo = null;
+    state.selectedIssue = null;
+    state.currentRoute = AppRoute.REPO_LIST;
   };
 
   const navigateToIssue = (issue: Issue) => {
-    setSelectedIssue(issue);
-    setCurrentRoute(AppRoute.ISSUE_DETAIL);
+    state.selectedIssue = issue;
+    state.currentRoute = AppRoute.ISSUE_DETAIL;
   };
 
   const navigateBackToRepo = () => {
-    setSelectedIssue(null);
-    setCurrentRoute(AppRoute.REPO_DETAIL);
+    state.selectedIssue = null;
+    state.currentRoute = AppRoute.REPO_DETAIL;
   };
 
   // Render Logic
@@ -131,7 +134,7 @@ const App: React.FC = () => {
   );
 };
 
-const AppWithProviders: React.FC = () => (
+const AppWithProviders = () => (
   <ThemeProvider>
     <App />
   </ThemeProvider>

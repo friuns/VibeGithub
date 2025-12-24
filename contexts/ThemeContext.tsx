@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, createEffect, onMount, onCleanup } from 'solid-js';
+import { createMutable } from 'solid-js/store';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -19,32 +20,37 @@ export const useTheme = () => {
 };
 
 interface ThemeProviderProps {
-  children: React.ReactNode;
+  children: any;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
-      return stored;
-    }
-    return 'system';
+export const ThemeProvider = (props: ThemeProviderProps) => {
+  const state = createMutable({
+    theme: (() => {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark' || stored === 'system') {
+        return stored;
+      }
+      return 'system';
+    })() as Theme,
+    resolvedTheme: 'light' as 'light' | 'dark',
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
-    if (theme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  const setTheme = (newTheme: Theme) => {
+    state.theme = newTheme;
+    if (newTheme === 'system') {
+      localStorage.removeItem('theme');
+    } else {
+      localStorage.setItem('theme', newTheme);
     }
-    return theme;
-  });
+  };
 
-  useEffect(() => {
+  createEffect(() => {
     const updateResolvedTheme = () => {
-      if (theme === 'system') {
+      if (state.theme === 'system') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setResolvedTheme(isDark ? 'dark' : 'light');
+        state.resolvedTheme = isDark ? 'dark' : 'light';
       } else {
-        setResolvedTheme(theme);
+        state.resolvedTheme = state.theme;
       }
     };
 
@@ -53,36 +59,27 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     // Listen for OS preference changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
-      if (theme === 'system') {
+      if (state.theme === 'system') {
         updateResolvedTheme();
       }
     };
 
     mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, [theme]);
+    onCleanup(() => mediaQuery.removeEventListener('change', handler));
+  });
 
-  useEffect(() => {
+  createEffect(() => {
     // Update the DOM class
-    if (resolvedTheme === 'dark') {
+    if (state.resolvedTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [resolvedTheme]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    if (newTheme === 'system') {
-      localStorage.removeItem('theme');
-    } else {
-      localStorage.setItem('theme', newTheme);
-    }
-  };
+  });
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
-      {children}
+    <ThemeContext.Provider value={{ theme: state.theme, resolvedTheme: state.resolvedTheme, setTheme }}>
+      {props.children}
     </ThemeContext.Provider>
   );
 };
