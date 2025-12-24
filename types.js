@@ -1,0 +1,6 @@
+export const AppRoute = {
+  TOKEN_INPUT: 'TOKEN_INPUT',
+  REPO_LIST: 'REPO_LIST',
+  REPO_DETAIL: 'REPO_DETAIL',
+  ISSUE_DETAIL: 'ISSUE_DETAIL',
+};

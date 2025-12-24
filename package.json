@@ -12,12 +12,15 @@
     "firebase": "^12.7.0",
     "libsodium-wrappers": "^0.7.15",
     "lucide-react": "^0.561.0",
+    "lucide-solid": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "recharts": "^3.6.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "solid-js": "^1.9.10",
+    "solid-markdown": "^2.1.1",
     "tweetnacl": "^1.0.3",
     "tweetnacl-sealedbox-js": "^1.2.0",
     "tweetnacl-util": "^0.15.1"
@@ -31,6 +34,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-solid": "^2.11.10",
     "wrangler": "^4.56.0"
   }
 }

@@ -1,16 +1,11 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import { SolidMarkdown } from 'solid-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
-interface MarkdownProps {
-  children: string;
-  className?: string;
-}
-
-export const Markdown: React.FC<MarkdownProps> = ({ children, className = '' }) => {
+export const Markdown = (props) => {
+  const className = () => props.class || '';
   return (
-    <div className={`prose prose-sm max-w-none prose-slate dark:prose-invert
+    <div class={`prose prose-sm max-w-none prose-slate dark:prose-invert
       prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-headings:font-semibold
       prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed
       prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
@@ -30,30 +25,28 @@ export const Markdown: React.FC<MarkdownProps> = ({ children, className = '' }) 
       [&_summary]:before:content-['▶'] [&_summary]:before:inline-block [&_summary]:before:mr-2 [&_summary]:before:text-xs [&_summary]:before:transition-transform
       [&_details[open]>summary]:before:content-['▼']
       [&_details[open]>summary]:mb-2
-      ${className}`}>
-      <ReactMarkdown
+      ${className()}`}>
+      <SolidMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
         components={{
-          // Make links open in new tab
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">
               {children}
             </a>
           ),
-          // Better image handling
           img: ({ src, alt }) => (
             <img 
               src={src} 
               alt={alt || ''} 
               loading="lazy"
-              className="rounded-lg max-w-full h-auto"
+              class="rounded-lg max-w-full h-auto"
             />
           ),
         }}
       >
-        {children}
-      </ReactMarkdown>
+        {props.content}
+      </SolidMarkdown>
     </div>
   );
 };
