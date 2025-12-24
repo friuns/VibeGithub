@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Component, For, Show, onMount, onCleanup } from 'solid-js';
+import { createMutable } from 'solid-js/store';
+import { X, CheckCircle2, AlertCircle, Info } from 'lucide-solid';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -14,16 +15,16 @@ interface ToastProps {
   onDismiss: (id: string) => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
-  useEffect(() => {
+const Toast: Component<ToastProps> = (props) => {
+  onMount(() => {
     const timer = setTimeout(() => {
-      onDismiss(toast.id);
+      props.onDismiss(props.toast.id);
     }, 4000);
-    return () => clearTimeout(timer);
-  }, [toast.id, onDismiss]);
+    onCleanup(() => clearTimeout(timer));
+  });
 
   const getStyles = () => {
-    switch (toast.type) {
+    switch (props.toast.type) {
       case 'success':
         return 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200';
       case 'error':
@@ -35,27 +36,27 @@ const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
   };
 
   const getIcon = () => {
-    switch (toast.type) {
+    switch (props.toast.type) {
       case 'success':
-        return <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" />;
+        return <CheckCircle2 size={18} class="text-green-600 dark:text-green-400" />;
       case 'error':
-        return <AlertCircle size={18} className="text-red-600 dark:text-red-400" />;
+        return <AlertCircle size={18} class="text-red-600 dark:text-red-400" />;
       case 'info':
       default:
-        return <Info size={18} className="text-blue-600 dark:text-blue-400" />;
+        return <Info size={18} class="text-blue-600 dark:text-blue-400" />;
     }
   };
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg animate-slide-in ${getStyles()}`}
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg animate-slide-in ${getStyles()}`}
       role="alert"
     >
       {getIcon()}
-      <span className="flex-grow text-sm font-medium">{toast.message}</span>
+      <span class="flex-grow text-sm font-medium">{props.toast.message}</span>
       <button
-        onClick={() => onDismiss(toast.id)}
-        className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+        onClick={() => props.onDismiss(props.toast.id)}
+        class="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
       >
         <X size={14} />
       </button>
@@ -68,29 +69,35 @@ interface ToastContainerProps {
   onDismiss: (id: string) => void;
 }
 
-export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismiss }) => {
-  if (toasts.length === 0) return null;
-
+export const ToastContainer: Component<ToastContainerProps> = (props) => {
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
-      {toasts.map((toast) => (
-        <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
-      ))}
-    </div>
+    <Show when={props.toasts.length > 0}>
+      <div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+        <For each={props.toasts}>
+          {(toast) => <Toast toast={toast} onDismiss={props.onDismiss} />}
+        </For>
+      </div>
+    </Show>
   );
 };
 
+// Store for managing toasts with createMutable
+const toastStore = createMutable<{ toasts: ToastMessage[] }>({
+  toasts: [],
+});
+
 // Hook for managing toasts
 export const useToast = () => {
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
   const addToast = (type: ToastType, message: string) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setToasts((prev) => [...prev, { id, type, message }]);
+    toastStore.toasts.push({ id, type, message });
   };
 
   const dismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    const index = toastStore.toasts.findIndex((t) => t.id === id);
+    if (index !== -1) {
+      toastStore.toasts.splice(index, 1);
+    }
   };
 
   const showSuccess = (message: string) => addToast('success', message);
@@ -98,7 +105,7 @@ export const useToast = () => {
   const showInfo = (message: string) => addToast('info', message);
 
   return {
-    toasts,
+    get toasts() { return toastStore.toasts; },
     dismissToast,
     showSuccess,
     showError,

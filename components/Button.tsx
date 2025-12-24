@@ -1,21 +1,16 @@
-import React from 'react';
+import { Component, JSX, Show, mergeProps, splitProps } from 'solid-js';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'magic';
   size?: 'sm' | 'md';
   isLoading?: boolean;
-  icon?: React.ReactNode;
+  icon?: JSX.Element;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
-  variant = 'primary',
-  size = 'md',
-  className = '', 
-  isLoading = false,
-  icon,
-  ...props 
-}) => {
+export const Button: Component<ButtonProps> = (props) => {
+  const merged = mergeProps({ variant: 'primary', size: 'md', isLoading: false, class: '' }, props);
+  const [local, buttonProps] = splitProps(merged, ['children', 'variant', 'size', 'class', 'isLoading', 'icon', 'disabled']);
+  
   const baseStyles = "inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed";
   
   const sizeStyles = {
@@ -33,19 +28,20 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button 
-      className={`${baseStyles} ${sizeStyles[size]} ${variants[variant]} ${className}`}
-      disabled={isLoading || props.disabled}
-      {...props}
+      class={`${baseStyles} ${sizeStyles[local.size]} ${variants[local.variant]} ${local.class}`}
+      disabled={local.isLoading || local.disabled}
+      {...buttonProps}
     >
-      {isLoading ? (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      <Show when={local.isLoading}>
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-      ) : icon ? (
-        <span className="mr-2">{icon}</span>
-      ) : null}
-      {children}
+      </Show>
+      <Show when={!local.isLoading && local.icon}>
+        <span class="mr-2">{local.icon}</span>
+      </Show>
+      {local.children}
     </button>
   );
 };
