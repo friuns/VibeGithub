@@ -1,5 +1,5 @@
 import { Component } from 'solid-js';
-import SolidMarkdown from 'solid-markdown';
+import { SolidMarkdown } from 'solid-markdown';
 
 interface MarkdownProps {
   children: string;
