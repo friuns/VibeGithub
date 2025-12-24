@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, fetchReferenceWorkflows, copyAllWorkflowsInOneCommit, createIssueComment } from '../services/githubService';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, copySetupWorkflowAndRun, createIssueComment } from '../services/githubService';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield, User, Check, Copy, Download } from 'lucide-react';
@@ -75,8 +75,6 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   const [autoSetOAuthChecked, setAutoSetOAuthChecked] = useState(false);
 
   // Reference Workflows State
-  const [referenceWorkflows, setReferenceWorkflows] = useState<WorkflowFile[]>([]);
-  const [loadingReferenceWorkflows, setLoadingReferenceWorkflows] = useState(false);
   const [copyingAllWorkflows, setCopyingAllWorkflows] = useState(false);
 
   // Filter out pull requests from the main list
@@ -262,41 +260,30 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   };
 
   // Load reference workflows when secrets modal opens
-  const loadReferenceWorkflows = React.useCallback(async () => {
-    setLoadingReferenceWorkflows(true);
-    try {
-      const workflows = await fetchReferenceWorkflows(token);
-      setReferenceWorkflows(workflows);
-    } catch (err) {
-      console.error('Failed to load reference workflows:', err);
-    } finally {
-      setLoadingReferenceWorkflows(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (isSecretsModalOpen && referenceWorkflows.length === 0) {
-      loadReferenceWorkflows();
-    }
-  }, [isSecretsModalOpen, referenceWorkflows.length, loadReferenceWorkflows]);
-
   const handleCopyAllWorkflows = async () => {
     setCopyingAllWorkflows(true);
     
     try {
-      await copyAllWorkflowsInOneCommit(
+      const REFERENCE_OWNER = 'friuns';
+      const REFERENCE_REPO = 'VibeGithub';
+      
+      await copySetupWorkflowAndRun(
         token,
-        referenceWorkflows[0].repoOwner,
-        referenceWorkflows[0].repoName,
+        REFERENCE_OWNER,
+        REFERENCE_REPO,
         repo.owner.login,
-        repo.name,
-        referenceWorkflows
+        repo.name
       );
       
-      showError(`Successfully copied all ${referenceWorkflows.length} workflows in one commit!`);
+      showError('Setup workflow started! It will copy all workflows and configure GitHub Pages.');
+      
+      // Refresh workflows after a delay to show the new setup.yml
+      setTimeout(() => {
+        loadWorkflowFiles();
+      }, 3000);
     } catch (err: any) {
-      console.error('Failed to copy workflows:', err);
-      showError(err?.message || 'Failed to copy workflows. Ensure your token has "repo" scope.');
+      console.error('Failed to start setup workflow:', err);
+      showError(err?.message || 'Failed to start setup workflow. Ensure your token has "repo" and "workflow" scopes.');
     } finally {
       setCopyingAllWorkflows(false);
     }
@@ -709,60 +696,25 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
 
                  {/* Copy Reference Workflows Section */}
                  <div className="border-t border-slate-200 dark:border-slate-600 pt-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Download size={18} className="text-blue-600 dark:text-blue-400" />
-                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                          Copy Reference Workflows
-                        </h3>
-                      </div>
-                      {referenceWorkflows.length > 0 && !loadingReferenceWorkflows && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={handleCopyAllWorkflows}
-                          isLoading={copyingAllWorkflows}
-                          icon={<Copy size={14} />}
-                        >
-                          Copy All ({referenceWorkflows.length})
-                        </Button>
-                      )}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Download size={18} className="text-blue-600 dark:text-blue-400" />
+                      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                        Automated Repository Setup
+                      </h3>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                      Copy pre-configured workflows from <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">friuns/VibeGithub</code>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                      Run the setup workflow to copy all workflows from <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">friuns/VibeGithub</code> and configure GitHub Pages in one automated process.
                     </p>
                     
-                    <div className="space-y-2">
-                      {loadingReferenceWorkflows ? (
-                        <div className="flex items-center justify-center py-8">
-                          <RefreshCw size={20} className="text-slate-400 animate-spin" />
-                          <span className="ml-2 text-slate-500 dark:text-slate-400">Loading workflows...</span>
-                        </div>
-                      ) : referenceWorkflows.length === 0 ? (
-                        <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
-                          No reference workflows found
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {referenceWorkflows.map(workflow => (
-                            <div
-                              key={workflow.path}
-                              className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
-                            >
-                              <FileCode size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <span className="font-mono text-sm font-medium text-slate-800 dark:text-slate-100 block truncate">
-                                  {workflow.name}
-                                </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">
-                                  {workflow.path}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleCopyAllWorkflows}
+                      isLoading={copyingAllWorkflows}
+                      icon={<FileCode size={14} />}
+                    >
+                      Run Automated Setup
+                    </Button>
                  </div>
 
                  <div className="pt-4 flex justify-end">
