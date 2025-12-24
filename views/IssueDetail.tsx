@@ -1,4 +1,4 @@
-import { Component, For, Show, onMount, createEffect } from 'solid-js';
+import { Component, For, Show, onMount } from 'solid-js';
 import { createMutable } from 'solid-js/store';
 import { Repository, Issue, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus } from '../types';
 import { fetchIssues, fetchComments, fetchWorkflowRuns, fetchArtifacts, fetchPullRequestDetails, fetchDeploymentsBySha, fetchDeploymentStatuses, mergePullRequest, createIssueComment } from '../services/githubService';
