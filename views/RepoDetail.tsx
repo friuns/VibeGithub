@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret } from '../services/githubService';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, copyVibeGithubWorkflows } from '../services/githubService';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield } from 'lucide-react';
@@ -49,6 +49,9 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   const [newSecretValue, setNewSecretValue] = useState('');
   const [showSecretValue, setShowSecretValue] = useState(false);
   const [savingSecret, setSavingSecret] = useState(false);
+
+  // Copy Workflows State
+  const [copyingWorkflows, setCopyingWorkflows] = useState(false);
   const [deletingSecret, setDeletingSecret] = useState<string | null>(null);
   const [autoSetOAuthChecked, setAutoSetOAuthChecked] = useState(false);
 
@@ -225,6 +228,20 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   };
 
+  const handleCopyWorkflows = async () => {
+    setCopyingWorkflows(true);
+    try {
+      await copyVibeGithubWorkflows(token, repo.owner.login, repo.name);
+      // Reload workflow files to include the new ones
+      await loadWorkflowFiles();
+      // Show success message - since we don't have a success toast, we'll just not show error
+    } catch (err) {
+      showError('Failed to copy workflows');
+    } finally {
+      setCopyingWorkflows(false);
+    }
+  };
+
 
 
   return (
@@ -248,9 +265,12 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
              <Button variant="secondary" onClick={() => loadIssues(true)} icon={<RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />} disabled={isRefreshing}>
                Refresh
              </Button>
-             <Button variant="secondary" onClick={() => setIsSecretsModalOpen(true)} icon={<Key size={16} />}>
-               Secrets
-             </Button>
+              <Button variant="secondary" onClick={() => setIsSecretsModalOpen(true)} icon={<Key size={16} />}>
+                Secrets
+              </Button>
+              <Button variant="secondary" onClick={handleCopyWorkflows} icon={<FileCode size={16} />} isLoading={copyingWorkflows}>
+                Copy Workflows
+              </Button>
              <Button variant="primary" icon={<Plus size={18} />} onClick={() => setIsModalOpen(true)}>
                 New Issue
              </Button>
