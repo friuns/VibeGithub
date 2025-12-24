@@ -1,5 +1,6 @@
 name: Setup Repository
 # This workflow automates repository setup by:
+# - Creating a React + Vite project template
 # - Copying all workflows from the reference repository (friuns/VibeGithub)
 # - Configuring GitHub Pages with GitHub Actions as the build source
 # - Setting the repository website URL to the GitHub Pages URL
@@ -21,6 +22,30 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.OAUTH_TOKEN || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Create React + Vite project template
+        run: |
+          echo "⚛️  Creating React + Vite project template..."
+          
+          # Check if this is an empty repository
+          if [ -z "$(ls -A)" ] || [ ! -f "package.json" ]; then
+            echo "Creating new React + Vite project..."
+            
+            # Create project using npm create vite
+            npm create vite@latest . -- --template react-ts
+            
+            # Install dependencies
+            npm install
+            
+            echo "✅ React + Vite project created!"
+          else
+            echo "Repository already has files, skipping template creation"
+          fi
 
       - name: Copy workflows from reference repository
         env:
@@ -53,21 +78,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit and push workflows
+      - name: Commit and push changes
         run: |
-          git add .github/workflows/
+          git add .
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No new workflows to commit"
+            echo "No changes to commit"
           else
-            git commit -m "Add workflows from ${{ github.repository }}
+            # Create commit message
+            COMMIT_MSG="Initialize repository with React + Vite template
+
+            - Created React + TypeScript project with Vite
+            - Added workflows from friuns/VibeGithub"
             
-            Workflows copied from friuns/VibeGithub:
+            if [ -d ".github/workflows" ]; then
+              COMMIT_MSG="$COMMIT_MSG
+            
+            Workflows installed:
             $(ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /')"
+            fi
             
+            git commit -m "$COMMIT_MSG"
             git push
-            echo "✅ Workflows committed and pushed!"
+            echo "✅ Changes committed and pushed!"
           fi
 
       - name: Enable GitHub Pages
@@ -117,12 +151,28 @@ jobs:
           echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Created React + TypeScript project with Vite" >> $GITHUB_STEP_SUMMARY
           echo "- Copied workflows from friuns/VibeGithub" >> $GITHUB_STEP_SUMMARY
           echo "- Configured GitHub Pages with GitHub Actions" >> $GITHUB_STEP_SUMMARY
           echo "- Set repository website to GitHub Pages URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚛️  Project Stack:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Framework**: React 18 with TypeScript" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Tool**: Vite" >> $GITHUB_STEP_SUMMARY
+          echo "- **Development**: Hot Module Replacement (HMR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Workflows Installed:" >> $GITHUB_STEP_SUMMARY
-          ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          if [ -d ".github/workflows" ]; then
+            ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Getting Started:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "git clone https://github.com/${{ github.repository }}.git" >> $GITHUB_STEP_SUMMARY
+          echo "cd $(echo "${{ github.repository }}" | cut -d'/' -f2)" >> $GITHUB_STEP_SUMMARY
+          echo "npm install" >> $GITHUB_STEP_SUMMARY
+          echo "npm run dev" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Quick Links:" >> $GITHUB_STEP_SUMMARY
           

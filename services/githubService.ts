@@ -35,6 +35,7 @@ export const fetchRepositories = async (token: string, page = 1): Promise<Reposi
 };
 
 export const createRepository = async (token: string, repo: RepoDraft): Promise<Repository> => {
+  // Create repository without auto_init - setup workflow will initialize it
   const response = await fetch(`${GITHUB_API_BASE}/user/repos`, {
     method: 'POST',
     headers: {
@@ -42,7 +43,10 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
       Accept: 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(repo),
+    body: JSON.stringify({
+      ...repo,
+      auto_init: false, // Don't auto-init, setup workflow will create React template
+    }),
   });
 
   if (!response.ok) {
