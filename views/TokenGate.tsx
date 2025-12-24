@@ -5,7 +5,7 @@ import { GitHubUser } from '../types';
 import { Button } from '../components/Button';
 import { Github, Key, ArrowLeft } from 'lucide-react';
 
-type AuthMethod = 'select' | 'oauth' | 'pat';
+type AuthMethod = 'select' | 'pat';
 
 interface TokenGateProps {
   onSuccess: (token: string, user: GitHubUser) => void;
@@ -95,10 +95,17 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
           </div>
 
           <div className="space-y-3">
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-md border border-red-200 dark:border-red-800">
+                {error}
+              </div>
+            )}
+
             <Button 
-              onClick={() => setAuthMethod('oauth')} 
+              onClick={handleGitHubLogin} 
               className="w-full" 
               variant="primary"
+              isLoading={loading}
             >
               <Github className="mr-2" size={20} />
               Sign in with GitHub
@@ -115,55 +122,6 @@ export const TokenGate: React.FC<TokenGateProps> = ({ onSuccess }) => {
 
             <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-2">
               By signing in, you grant access to your public and private repositories.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // OAuth login view
-  if (authMethod === 'oauth') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-        <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 p-8 border border-slate-200 dark:border-slate-700">
-          <button
-            onClick={handleBack}
-            className="flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mb-4 transition-colors"
-          >
-            <ArrowLeft size={16} className="mr-1" />
-            Back
-          </button>
-
-          <div className="flex flex-col items-center mb-6">
-            <div className="bg-slate-900 dark:bg-slate-700 p-3 rounded-full mb-4 text-white">
-              <Github size={32} />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Sign in with GitHub</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-center mt-2">
-              You'll be redirected to GitHub to authorize access.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-md border border-red-200 dark:border-red-800">
-                {error}
-              </div>
-            )}
-
-            <Button 
-              onClick={handleGitHubLogin} 
-              className="w-full" 
-              isLoading={loading} 
-              variant="primary"
-            >
-              <Github className="mr-2" size={20} />
-              Continue with GitHub
-            </Button>
-
-            <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-              This uses GitHub OAuth for secure authentication.
             </p>
           </div>
         </div>
