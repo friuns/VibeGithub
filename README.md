@@ -159,12 +159,34 @@ Agents that work with this pattern:
 
 ## Tech Stack
 
-- **React 18** + TypeScript
-- **Vite** for fast builds
+- **SolidJS** + TypeScript (migrated from React 19)
+- **Vite** with `vite-plugin-solid` for fast builds
 - **Tailwind CSS** for styling
 - **Firebase Auth** for GitHub OAuth
 - **GitHub REST API** for repository operations
+- **State Management**: `createMutable` from solid-js/store (no external state libraries)
 
 ## License
 
 MIT
+
+## Recent Updates
+
+### SolidJS Migration ✨
+
+This project has been migrated from React 19 to **SolidJS** with exclusive use of `createMutable` for state management. 
+
+**Benefits:**
+- ⚡ Faster reactivity with fine-grained updates
+- 🎯 No virtual DOM overhead
+- 📦 Smaller bundle size
+- 🔧 Simpler state management with `createMutable`
+
+**Migration Status:** Core functionality complete. See [SOLIDJS_MIGRATION_STATUS.md](./SOLIDJS_MIGRATION_STATUS.md) for details.
+
+**Key Changes:**
+- All components converted to SolidJS
+- State management via `createMutable` (no signals, no external libraries)
+- Dashboard fully functional with all CRUD operations
+- Build process updated for SolidJS
+
