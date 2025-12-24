@@ -4,6 +4,12 @@
 const CACHE_PREFIX = 'vibe_github_cache_';
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes - data considered "fresh" within this time
 
+// Get the current account ID for cache scoping
+function getCurrentAccountId(): string {
+  const activeAccountId = localStorage.getItem('gh_active_account_id');
+  return activeAccountId || '__no_account__';
+}
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -11,7 +17,9 @@ interface CacheEntry<T> {
 
 export function getCached<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    const accountId = getCurrentAccountId();
+    const scopedKey = `${accountId}_${key}`;
+    const raw = localStorage.getItem(CACHE_PREFIX + scopedKey);
     if (!raw) return null;
     const entry: CacheEntry<T> = JSON.parse(raw);
     return entry.data;
@@ -22,11 +30,13 @@ export function getCached<T>(key: string): T | null {
 
 export function setCache<T>(key: string, data: T): void {
   try {
+    const accountId = getCurrentAccountId();
+    const scopedKey = `${accountId}_${key}`;
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
     };
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(entry));
+    localStorage.setItem(CACHE_PREFIX + scopedKey, JSON.stringify(entry));
   } catch {
     // Ignore storage errors (quota exceeded, etc.)
   }
@@ -34,7 +44,9 @@ export function setCache<T>(key: string, data: T): void {
 
 export function isCacheFresh(key: string, ttl = DEFAULT_TTL): boolean {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    const accountId = getCurrentAccountId();
+    const scopedKey = `${accountId}_${key}`;
+    const raw = localStorage.getItem(CACHE_PREFIX + scopedKey);
     if (!raw) return false;
     const entry = JSON.parse(raw);
     return Date.now() - entry.timestamp < ttl;
@@ -43,9 +55,27 @@ export function isCacheFresh(key: string, ttl = DEFAULT_TTL): boolean {
   }
 }
 
-export function clearCache(key?: string): void {
-  if (key) {
-    localStorage.removeItem(CACHE_PREFIX + key);
+export function clearCache(key?: string, accountId?: string): void {
+  if (key && accountId) {
+    // Clear specific key for specific account
+    const scopedKey = `${accountId}_${key}`;
+    localStorage.removeItem(CACHE_PREFIX + scopedKey);
+  } else if (key) {
+    // Clear specific key for current account
+    const accId = getCurrentAccountId();
+    const scopedKey = `${accId}_${key}`;
+    localStorage.removeItem(CACHE_PREFIX + scopedKey);
+  } else if (accountId) {
+    // Clear all keys for specific account
+    const prefix = CACHE_PREFIX + accountId + '_';
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix)) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
   } else {
     // Clear all cache entries
     const keysToRemove: string[] = [];
