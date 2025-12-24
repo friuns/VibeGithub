@@ -938,8 +938,42 @@ export const copySetupWorkflowAndRun = async (
     existingSha || undefined
   );
   
-  // Wait a bit for the file to be committed
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Wait for GitHub to process the commit and make the workflow available
+  // We need to poll until the workflow is registered
+  let workflowAvailable = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (!workflowAvailable && attempts < maxAttempts) {
+    attempts++;
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between attempts
+    
+    try {
+      // Try to get the workflow to see if it's registered
+      const checkResponse = await fetch(
+        `${GITHUB_API_BASE}/repos/${targetOwner}/${targetRepo}/actions/workflows/setup.yml`,
+        {
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }
+      );
+      
+      if (checkResponse.ok) {
+        workflowAvailable = true;
+      }
+    } catch (err) {
+      // Continue waiting
+    }
+  }
+  
+  if (!workflowAvailable) {
+    throw new Error('Workflow setup.yml was not registered in time. Please trigger it manually from the Actions tab.');
+  }
+  
+  // Get the default branch
+  const defaultBranch = await getDefaultBranch(token, targetOwner, targetRepo);
   
   // Trigger the setup workflow
   const triggerResponse = await fetch(
@@ -952,12 +986,13 @@ export const copySetupWorkflowAndRun = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ref: 'main',
+        ref: defaultBranch,
       }),
     }
   );
   
   if (!triggerResponse.ok) {
-    throw new Error('Failed to trigger setup workflow');
+    const errorData = await triggerResponse.json().catch(() => ({}));
+    throw new Error(errorData?.message || 'Failed to trigger setup workflow. Please trigger it manually from the Actions tab.');
   }
 };

@@ -2,11 +2,6 @@ name: Setup Repository
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/setup.yml'
 
 permissions:
   contents: write
