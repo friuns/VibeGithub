@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, GitHubUser, RepoDraft, Issue } from '../types';
-import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret, fetchReferenceWorkflows, copyAllWorkflowsInOneCommit, enableGitHubPages } from '../services/githubService';
+import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret, copySetupWorkflowAndRun } from '../services/githubService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
@@ -149,34 +149,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
         }
       }
       
-      // Auto-copy workflows if checkbox is checked
+      // Copy setup workflow and run it if checkbox is checked
       if (autoCopyWorkflows) {
         try {
           // Small delay to ensure repo is fully created
           await new Promise(resolve => setTimeout(resolve, 1000));
-          const workflows = await fetchReferenceWorkflows(token);
-          if (workflows.length > 0) {
-            await copyAllWorkflowsInOneCommit(
-              token,
-              'friuns',
-              'VibeGithub',
-              createdRepo.owner.login,
-              createdRepo.name,
-              workflows
-            );
-            
-            // Enable GitHub Pages with GitHub Actions as the source
-            try {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              await enableGitHubPages(token, createdRepo.owner.login, createdRepo.name);
-            } catch (pagesErr) {
-              console.warn('Failed to enable GitHub Pages:', pagesErr);
-              // Don't fail if Pages configuration fails
-            }
-          }
-        } catch (workflowErr) {
-          console.warn('Failed to auto-copy workflows:', workflowErr);
-          // Don't fail the whole operation if workflow copying fails
+          
+          // Copy the setup.yml workflow and trigger it
+          // This workflow will copy all other workflows and setup Pages
+          await copySetupWorkflowAndRun(
+            token,
+            'friuns',
+            'VibeGithub',
+            createdRepo.owner.login,
+            createdRepo.name
+          );
+        } catch (setupErr) {
+          console.warn('Failed to copy and run setup workflow:', setupErr);
+          // Don't fail the whole operation if setup workflow fails
         }
       }
       
@@ -432,8 +422,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                       <div className="flex items-center gap-2">
                         <FileCode size={16} className="text-blue-600 dark:text-blue-400" />
                         <div>
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Copy workflows from VibeGithub</span>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Automatically adds pre-configured GitHub Actions workflows</p>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Run automated repository setup</span>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Copies workflows from VibeGithub and configures GitHub Pages</p>
                         </div>
                       </div>
                     </label>

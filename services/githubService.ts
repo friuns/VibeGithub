@@ -824,3 +824,140 @@ export const enableGitHubPages = async (
     throw new Error('Failed to enable GitHub Pages');
   }
 };
+
+/**
+ * Create or update a file in a repository
+ */
+const createOrUpdateFile = async (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  sha?: string
+): Promise<void> => {
+  // Encode content to base64
+  const encodedContent = btoa(unescape(encodeURIComponent(content)));
+  
+  const body: any = {
+    message,
+    content: encodedContent,
+  };
+  
+  // If SHA is provided, we're updating an existing file
+  if (sha) {
+    body.sha = sha;
+  }
+  
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to create/update file');
+  }
+};
+
+/**
+ * Check if a file exists and get its SHA
+ */
+const getFileSha = async (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string
+): Promise<string | null> => {
+  try {
+    const response = await fetch(
+      `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        cache: 'no-cache',
+      }
+    );
+    
+    if (response.status === 404) {
+      return null; // File doesn't exist
+    }
+    
+    if (!response.ok) {
+      throw new Error('Failed to check file');
+    }
+    
+    const data = await response.json();
+    return data.sha;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Copy the setup.yml workflow and trigger it to setup the repository
+ */
+export const copySetupWorkflowAndRun = async (
+  token: string,
+  sourceOwner: string,
+  sourceRepo: string,
+  targetOwner: string,
+  targetRepo: string
+): Promise<void> => {
+  const setupWorkflowPath = '.github/workflows/setup.yml';
+  
+  // Fetch the setup.yml content from source
+  const content = await fetchWorkflowContent(token, sourceOwner, sourceRepo, setupWorkflowPath);
+  
+  // Check if file exists in target
+  const existingSha = await getFileSha(token, targetOwner, targetRepo, setupWorkflowPath);
+  
+  // Create or update the setup.yml file
+  const message = existingSha 
+    ? `Update ${setupWorkflowPath} from ${sourceOwner}/${sourceRepo}`
+    : `Add ${setupWorkflowPath} from ${sourceOwner}/${sourceRepo}`;
+    
+  await createOrUpdateFile(
+    token,
+    targetOwner,
+    targetRepo,
+    setupWorkflowPath,
+    content,
+    message,
+    existingSha || undefined
+  );
+  
+  // Wait a bit for the file to be committed
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Trigger the setup workflow
+  const triggerResponse = await fetch(
+    `${GITHUB_API_BASE}/repos/${targetOwner}/${targetRepo}/actions/workflows/setup.yml/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ref: 'main',
+      }),
+    }
+  );
+  
+  if (!triggerResponse.ok) {
+    throw new Error('Failed to trigger setup workflow');
+  }
+};

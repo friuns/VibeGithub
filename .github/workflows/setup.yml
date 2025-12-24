@@ -1,0 +1,109 @@
+name: Setup Repository
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/setup.yml'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.OAUTH_TOKEN || github.token }}
+
+      - name: Copy workflows from reference repository
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REFERENCE_REPO: friuns/VibeGithub
+        run: |
+          echo "📥 Copying workflows from $REFERENCE_REPO..."
+          
+          # Create workflows directory if it doesn't exist
+          mkdir -p .github/workflows
+          
+          # Get list of workflow files from reference repository
+          WORKFLOWS=$(gh api repos/$REFERENCE_REPO/contents/.github/workflows \
+            --jq '.[] | select(.name | endswith(".yml") or endswith(".yaml")) | select(.name != "setup.yml") | .name')
+          
+          echo "Found workflows:"
+          echo "$WORKFLOWS"
+          
+          # Copy each workflow file
+          for workflow in $WORKFLOWS; do
+            echo "Copying $workflow..."
+            gh api repos/$REFERENCE_REPO/contents/.github/workflows/$workflow \
+              --jq '.content' | base64 -d > .github/workflows/$workflow
+          done
+          
+          echo "✅ Workflows copied successfully!"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push workflows
+        run: |
+          git add .github/workflows/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No new workflows to commit"
+          else
+            git commit -m "Add workflows from ${{ github.repository }}
+            
+            Workflows copied from friuns/VibeGithub:
+            $(ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /')"
+            
+            git push
+            echo "✅ Workflows committed and pushed!"
+          fi
+
+      - name: Enable GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "📄 Configuring GitHub Pages..."
+          
+          # Try to create Pages with GitHub Actions as the source
+          RESPONSE=$(gh api -X POST repos/$REPO/pages \
+            -f build_type=workflow \
+            2>&1 || echo "CREATE_FAILED")
+          
+          if [[ "$RESPONSE" == *"CREATE_FAILED"* ]] || [[ "$RESPONSE" == *"already exists"* ]]; then
+            echo "Pages may already exist, attempting to update..."
+            gh api -X PUT repos/$REPO/pages \
+              -f build_type=workflow \
+              2>&1 || echo "⚠️ Could not update Pages (may need manual configuration)"
+          fi
+          
+          echo "✅ GitHub Pages configured with GitHub Actions as the source!"
+
+      - name: Setup Summary
+        run: |
+          echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- Copied workflows from friuns/VibeGithub" >> $GITHUB_STEP_SUMMARY
+          echo "- Configured GitHub Pages with GitHub Actions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Workflows Installed:" >> $GITHUB_STEP_SUMMARY
+          ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Quick Links:" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Pages Settings](https://github.com/${{ github.repository }}/settings/pages)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Actions](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Workflows](https://github.com/${{ github.repository }}/tree/main/.github/workflows)" >> $GITHUB_STEP_SUMMARY
+
