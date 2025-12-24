@@ -1,14 +1,12 @@
-import React from 'react';
-import { Sun, Moon, Monitor } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
+import { Component } from 'solid-js';
+import { Sun, Moon, Monitor } from 'lucide-solid';
+import { store, setTheme } from '../store';
 
-export const ThemeToggle: React.FC = () => {
-  const { theme, setTheme } = useTheme();
-
+export const ThemeToggle: Component = () => {
   const cycleTheme = () => {
-    if (theme === 'system') {
+    if (store.theme === 'system') {
       setTheme('light');
-    } else if (theme === 'light') {
+    } else if (store.theme === 'light') {
       setTheme('dark');
     } else {
       setTheme('system');
@@ -16,7 +14,7 @@ export const ThemeToggle: React.FC = () => {
   };
 
   const getIcon = () => {
-    switch (theme) {
+    switch (store.theme) {
       case 'light':
         return <Sun size={16} />;
       case 'dark':
@@ -27,7 +25,7 @@ export const ThemeToggle: React.FC = () => {
   };
 
   const getLabel = () => {
-    switch (theme) {
+    switch (store.theme) {
       case 'light':
         return 'Light';
       case 'dark':
@@ -40,14 +38,11 @@ export const ThemeToggle: React.FC = () => {
   return (
     <button
       onClick={cycleTheme}
-      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors"
+      class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors"
       title={`Current: ${getLabel()}. Click to cycle theme.`}
     >
       {getIcon()}
-      <span className="hidden sm:inline">{getLabel()}</span>
+      <span class="hidden sm:inline">{getLabel()}</span>
     </button>
   );
 };
-
-
-
