@@ -1,6 +1,7 @@
 import { GITHUB_API_BASE } from '../constants';
 import { Repository, Issue, GitHubUser, IssueDraft, RepoDraft, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus, WorkflowFile, RepoPublicKey, RepoSecret, GitHubTemplate } from '../types';
 import _sodium from 'libsodium-wrappers';
+import setupWorkflowContent from '../.github/workflows/setup.yml?raw';
 
 export const validateToken = async (token: string): Promise<GitHubUser> => {
   const response = await fetch(`${GITHUB_API_BASE}/user`, {
@@ -67,7 +68,7 @@ export const fetchGitHubTemplates = async (token: string, searchQuery?: string):
 };
 
 export const createRepository = async (token: string, repo: RepoDraft): Promise<Repository> => {
-  // If template_repository is provided, try template endpoint first, then clone via Actions as fallback
+  // If template_repository is provided, try template endpoint first, then use setup workflow as fallback
   if (repo.template_repository) {
     const [owner, repoName] = repo.template_repository.split('/');
     
@@ -92,8 +93,8 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
       return templateResponse.json();
     }
 
-    // If template generation fails (e.g., OAuth restrictions), create repo with clone workflow
-    console.warn(`Template generation failed for ${owner}/${repoName}, will clone via GitHub Actions instead`);
+    // If template generation fails (e.g., OAuth restrictions), create repo and use setup workflow
+    console.warn(`Template generation failed for ${owner}/${repoName}, will use setup workflow instead`);
     
     // Create repository with auto_init to have a default branch
     const createResponse = await fetch(`${GITHUB_API_BASE}/user/repos`, {
@@ -116,76 +117,28 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
       throw new Error(`Failed to create repository: ${errorData.message || 'Unknown error'}`);
     }
 
-      const newRepo = await createResponse.json();
-      
-      // Set the OAUTH_TOKEN secret so the workflow can push workflows
-      try {
-        await setRepositorySecret(token, newRepo.owner.login, newRepo.name, 'OAUTH_TOKEN', token);
-      } catch (error) {
-        console.warn('Failed to set OAUTH_TOKEN secret:', error);
-      }
-      
-      // Create a workflow file that will clone the template repository
-      const workflowContent = `name: Clone Template
-on:
-  workflow_dispatch:
-
-jobs:
-  clone:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout current repo
-        uses: actions/checkout@v4
-        with:
-          token: \${{ secrets.OAUTH_TOKEN || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          persist-credentials: true
-          
-      - name: Clone template repository
-        run: |
-          cd ..
-          git clone --depth 1 https://github.com/${owner}/${repoName}.git temp-clone
-          
-      - name: Copy template files
-        run: |
-          # Remove existing files except .git
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          
-          # Copy all files from template (excluding .git)
-          rsync -av --exclude='.git' ../temp-clone/ .
-          
-      - name: Commit and push template files
-        env:
-          GITHUB_TOKEN: \${{ secrets.OAUTH_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Initialize from template: ${owner}/${repoName}"
-            git push origin main --force
-          fi
-`;
-
-    // Create .github/workflows directory and workflow file
+    const newRepo = await createResponse.json();
+    
+    // Set the OAUTH_TOKEN secret so the workflow can access it
+    try {
+      await setRepositorySecret(token, newRepo.owner.login, newRepo.name, 'OAUTH_TOKEN', token);
+    } catch (error) {
+      console.warn('Failed to set OAUTH_TOKEN secret:', error);
+    }
+    
+    // Copy the setup.yml workflow to the new repository
     try {
       await createOrUpdateFile(
         token,
         newRepo.owner.login,
         newRepo.name,
-        '.github/workflows/clone-template.yml',
-        workflowContent,
-        'Add workflow to clone template repository'
+        '.github/workflows/setup.yml',
+        setupWorkflowContent,
+        'Add setup workflow'
       );
       
-      // Trigger the workflow
-      await fetch(`${GITHUB_API_BASE}/repos/${newRepo.owner.login}/${newRepo.name}/actions/workflows/clone-template.yml/dispatches`, {
+      // Trigger the setup workflow with template parameter
+      await fetch(`${GITHUB_API_BASE}/repos/${newRepo.owner.login}/${newRepo.name}/actions/workflows/setup.yml/dispatches`, {
         method: 'POST',
         headers: {
           Authorization: `token ${token}`,
@@ -194,10 +147,13 @@ jobs:
         },
         body: JSON.stringify({
           ref: newRepo.default_branch || 'main',
+          inputs: {
+            template_repo: `${owner}/${repoName}`,
+          },
         }),
       });
     } catch (error) {
-      console.warn('Failed to create clone workflow:', error);
+      console.warn('Failed to setup workflow:', error);
       // Don't fail the repo creation, just log the warning
     }
     
@@ -642,33 +598,6 @@ export const deleteRepositorySecret = async (
  * Fetch workflow files from the reference repository
  */
 /**
- * Fetch the content of a specific workflow file
- */
-export const fetchWorkflowContent = async (
-  token: string,
-  owner: string,
-  repo: string,
-  path: string
-): Promise<string> => {
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
-    {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github.v3.raw',
-      },
-      cache: 'no-cache',
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch workflow content');
-  }
-
-  return response.text();
-};
-
-/**
  * Get the default branch of a repository
  */
 export const getDefaultBranch = async (
@@ -787,16 +716,16 @@ export const copySetupWorkflowAndRun = async (
 ): Promise<void> => {
   const setupWorkflowPath = '.github/workflows/setup.yml';
   
-  // Fetch the setup.yml content from source
-  const content = await fetchWorkflowContent(token, sourceOwner, sourceRepo, setupWorkflowPath);
+  // Use the bundled setup workflow content
+  const content = setupWorkflowContent;
   
   // Check if file exists in target
   const existingSha = await getFileSha(token, targetOwner, targetRepo, setupWorkflowPath);
   
   // Create or update the setup.yml file
   const message = existingSha 
-    ? `Update ${setupWorkflowPath} from ${sourceOwner}/${sourceRepo}`
-    : `Add ${setupWorkflowPath} from ${sourceOwner}/${sourceRepo}`;
+    ? `Update ${setupWorkflowPath}`
+    : `Add ${setupWorkflowPath}`;
     
   await createOrUpdateFile(
     token,
