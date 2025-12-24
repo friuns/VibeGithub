@@ -329,7 +329,7 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
       <div className="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={18} />}>
-            Back
+            <span className="hidden sm:inline">Back</span>
           </Button>
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-2">
@@ -338,25 +338,24 @@ export const IssueDetail: React.FC<IssueDetailProps> = ({ token, repo, issue, on
               ) : (
                 <CheckCircle2 className="text-slate-400 dark:text-slate-500 flex-shrink-0" size={18} />
               )}
-              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 truncate">{issue.title}</h1>
+              <a
+                href={issue.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xl font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 truncate transition-colors"
+              >
+                {issue.title}
+              </a>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400">{repo.full_name} · Issue #{issue.number}</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
             {isRefreshing && (
               <span className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">Updating...</span>
             )}
             <Button variant="secondary" onClick={() => loadData(true)} icon={<RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />} disabled={isRefreshing}>
               Refresh
             </Button>
-            <a
-              href={issue.html_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
-            >
-              View on GitHub
-            </a>
           </div>
         </div>
       </div>
