@@ -149,7 +149,16 @@ export interface RepoDraft {
   description: string;
   private: boolean;
   auto_init: boolean;
-  template?: string; // Vite template name (e.g., 'react-ts', 'vue-ts')
+  template_repository?: string; // Format: "owner/repo"
+}
+
+export interface GitHubTemplate {
+  name: string;
+  owner: {
+    login: string;
+  };
+  description: string;
+  stargazersCount: number;
 }
 
 export interface WorkflowFile {

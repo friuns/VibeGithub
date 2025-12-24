@@ -1,5 +1,5 @@
 import { GITHUB_API_BASE } from '../constants';
-import { Repository, Issue, GitHubUser, IssueDraft, RepoDraft, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus, WorkflowFile, RepoPublicKey, RepoSecret } from '../types';
+import { Repository, Issue, GitHubUser, IssueDraft, RepoDraft, Comment, WorkflowRun, Artifact, PullRequestDetails, Deployment, DeploymentStatus, WorkflowFile, RepoPublicKey, RepoSecret, GitHubTemplate } from '../types';
 import _sodium from 'libsodium-wrappers';
 
 export const validateToken = async (token: string): Promise<GitHubUser> => {
@@ -34,8 +34,177 @@ export const fetchRepositories = async (token: string, page = 1): Promise<Reposi
   return response.json();
 };
 
+export const fetchGitHubTemplates = async (token: string, searchQuery?: string): Promise<GitHubTemplate[]> => {
+  // Build search query - if user provides search, add it to the topic:template filter
+  const query = searchQuery 
+    ? `topic:template ${searchQuery}` 
+    : 'topic:template';
+  
+  const response = await fetch(`${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(query)}&sort=stars&per_page=20`, {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+    cache: 'no-cache',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch templates');
+  }
+
+  const data = await response.json();
+  const items = data.items || [];
+  
+  // Map the API response to our GitHubTemplate interface
+  return items.map((item: any) => ({
+    name: item.name,
+    owner: {
+      login: item.owner.login,
+    },
+    description: item.description || '',
+    stargazersCount: item.stargazers_count || 0,
+  }));
+};
+
 export const createRepository = async (token: string, repo: RepoDraft): Promise<Repository> => {
-  // Create repository without auto_init - setup workflow will initialize it
+  // If template_repository is provided, try template endpoint first, then clone via Actions as fallback
+  if (repo.template_repository) {
+    const [owner, repoName] = repo.template_repository.split('/');
+    
+    // Try template generation first
+    const templateResponse = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repoName}/generate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: repo.name,
+        description: repo.description,
+        private: repo.private,
+        include_all_branches: false,
+      }),
+    });
+
+    // If template generation succeeds, return the result
+    if (templateResponse.ok) {
+      return templateResponse.json();
+    }
+
+    // If template generation fails (e.g., OAuth restrictions), create repo with clone workflow
+    console.warn(`Template generation failed for ${owner}/${repoName}, will clone via GitHub Actions instead`);
+    
+    // Create repository with auto_init to have a default branch
+    const createResponse = await fetch(`${GITHUB_API_BASE}/user/repos`, {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: repo.name,
+        description: repo.description,
+        private: repo.private,
+        auto_init: true, // Initialize with README so we have a default branch
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({}));
+      throw new Error(`Failed to create repository: ${errorData.message || 'Unknown error'}`);
+    }
+
+      const newRepo = await createResponse.json();
+      
+      // Set the OAUTH_TOKEN secret so the workflow can push workflows
+      try {
+        await setRepositorySecret(token, newRepo.owner.login, newRepo.name, 'OAUTH_TOKEN', token);
+      } catch (error) {
+        console.warn('Failed to set OAUTH_TOKEN secret:', error);
+      }
+      
+      // Create a workflow file that will clone the template repository
+      const workflowContent = `name: Clone Template
+on:
+  workflow_dispatch:
+
+jobs:
+  clone:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.OAUTH_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
+          
+      - name: Clone template repository
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/${owner}/${repoName}.git temp-clone
+          
+      - name: Copy template files
+        run: |
+          # Remove existing files except .git
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          
+          # Copy all files from template (excluding .git)
+          rsync -av --exclude='.git' ../temp-clone/ .
+          
+      - name: Commit and push template files
+        env:
+          GITHUB_TOKEN: \${{ secrets.OAUTH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Initialize from template: ${owner}/${repoName}"
+            git push origin main --force
+          fi
+`;
+
+    // Create .github/workflows directory and workflow file
+    try {
+      await createOrUpdateFile(
+        token,
+        newRepo.owner.login,
+        newRepo.name,
+        '.github/workflows/clone-template.yml',
+        workflowContent,
+        'Add workflow to clone template repository'
+      );
+      
+      // Trigger the workflow
+      await fetch(`${GITHUB_API_BASE}/repos/${newRepo.owner.login}/${newRepo.name}/actions/workflows/clone-template.yml/dispatches`, {
+        method: 'POST',
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ref: newRepo.default_branch || 'main',
+        }),
+      });
+    } catch (error) {
+      console.warn('Failed to create clone workflow:', error);
+      // Don't fail the repo creation, just log the warning
+    }
+    
+    return newRepo;
+  }
+
+  // Standard repository creation
   const response = await fetch(`${GITHUB_API_BASE}/user/repos`, {
     method: 'POST',
     headers: {
@@ -43,10 +212,7 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
       Accept: 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      ...repo,
-      auto_init: false, // Don't auto-init, setup workflow will create React template
-    }),
+    body: JSON.stringify(repo),
   });
 
   if (!response.ok) {
@@ -617,8 +783,7 @@ export const copySetupWorkflowAndRun = async (
   sourceOwner: string,
   sourceRepo: string,
   targetOwner: string,
-  targetRepo: string,
-  template?: string
+  targetRepo: string
 ): Promise<void> => {
   const setupWorkflowPath = '.github/workflows/setup.yml';
   
@@ -680,7 +845,7 @@ export const copySetupWorkflowAndRun = async (
   // Get the default branch
   const defaultBranch = await getDefaultBranch(token, targetOwner, targetRepo);
   
-  // Trigger the setup workflow with template input
+  // Trigger the setup workflow
   const triggerResponse = await fetch(
     `${GITHUB_API_BASE}/repos/${targetOwner}/${targetRepo}/actions/workflows/setup.yml/dispatches`,
     {
@@ -692,9 +857,6 @@ export const copySetupWorkflowAndRun = async (
       },
       body: JSON.stringify({
         ref: defaultBranch,
-        inputs: {
-          template: template || 'react-ts',
-        },
       }),
     }
   );

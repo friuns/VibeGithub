@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, copySetupWorkflowAndRun, createIssueComment } from '../services/githubService';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, createIssueComment } from '../services/githubService';
+import { autoSetOAuthToken, setupRepositoryWorkflows } from '../services/repoSetupUtils';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield, User, Check, Copy, Download } from 'lucide-react';
@@ -250,7 +251,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     setAutoSetOAuthChecked(true);
     setSavingSecret(true);
     try {
-      await setRepositorySecret(token, repo.owner.login, repo.name, 'OAUTH_TOKEN', token);
+      await autoSetOAuthToken(token, repo.owner.login, repo.name);
       await loadSecrets();
     } catch (err) {
       showError('Failed to set OAUTH_TOKEN');
@@ -259,21 +260,12 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   };
 
-  // Load reference workflows when secrets modal opens
+  // Run automated repository setup
   const handleCopyAllWorkflows = async () => {
     setCopyingAllWorkflows(true);
     
     try {
-      const REFERENCE_OWNER = 'friuns';
-      const REFERENCE_REPO = 'VibeGithub';
-      
-      await copySetupWorkflowAndRun(
-        token,
-        REFERENCE_OWNER,
-        REFERENCE_REPO,
-        repo.owner.login,
-        repo.name
-      );
+      await setupRepositoryWorkflows(token, repo.owner.login, repo.name);
       
       showError('Setup workflow started! It will copy all workflows and configure GitHub Pages.');
       
@@ -703,7 +695,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
                       </h3>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                      Run the setup workflow to copy all workflows from <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">friuns/VibeGithub</code> and configure GitHub Pages in one automated process.
+                      Run the setup workflow to copy all workflows from the reference repository and configure GitHub Pages in one automated process.
                     </p>
                     
                     <Button
