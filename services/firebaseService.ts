@@ -25,9 +25,30 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const githubProvider = new GithubAuthProvider();
 
-// Request additional GitHub scopes for repo access
+// Request additional GitHub scopes for full repo access
+// Note: 'repo' provides full control of private repositories including:
+// - Read/write access to code, commit statuses, collaborators, and deployment statuses
+// - Read/write access to repository hooks and services
 githubProvider.addScope('repo');
+
+// User profile access
 githubProvider.addScope('read:user');
+githubProvider.addScope('user:email');
+
+// Delete repository permission (not included in 'repo' scope)
+githubProvider.addScope('delete_repo');
+
+// GitHub Actions workflow management
+githubProvider.addScope('workflow');
+
+// Gist access (for potential code sharing features)
+githubProvider.addScope('gist');
+
+// Notifications access
+githubProvider.addScope('notifications');
+
+// Project access (for GitHub Projects integration)
+githubProvider.addScope('project');
 
 export interface GitHubAuthResult {
   user: User;

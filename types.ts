@@ -18,6 +18,7 @@ export interface Repository {
     avatar_url: string;
   };
   private: boolean;
+  html_url: string;
 }
 
 export interface Issue {

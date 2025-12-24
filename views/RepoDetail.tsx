@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret } from '../services/githubService';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, fetchReferenceWorkflows, copyWorkflowToRepo } from '../services/githubService';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
-import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield } from 'lucide-react';
+import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield, User, Check, Copy, Download } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface RepoDetailProps {
@@ -32,7 +32,29 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   // Form State
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>(() => {
+    const saved = localStorage.getItem('issue-assignees');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return ['copilot-swe-agent[bot]'];
+      }
+    }
+    return ['copilot-swe-agent[bot]'];
+  });
+  const [assigneesDropdownOpen, setAssigneesDropdownOpen] = useState(false);
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Save assignees selection to localStorage
+  useEffect(() => {
+    localStorage.setItem('issue-assignees', JSON.stringify(selectedAssignees));
+  }, [selectedAssignees]);
+  
+  // Hardcoded assignee options
+  const availableAssignees = [
+    { login: 'copilot-swe-agent[bot]', displayName: 'Copilot' },
+  ];
 
   // Workflow Files State
   const [workflowFiles, setWorkflowFiles] = useState<WorkflowFile[]>(() => {
@@ -51,6 +73,13 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   const [savingSecret, setSavingSecret] = useState(false);
   const [deletingSecret, setDeletingSecret] = useState<string | null>(null);
   const [autoSetOAuthChecked, setAutoSetOAuthChecked] = useState(false);
+
+  // Reference Workflows State
+  const [referenceWorkflows, setReferenceWorkflows] = useState<WorkflowFile[]>([]);
+  const [loadingReferenceWorkflows, setLoadingReferenceWorkflows] = useState(false);
+  const [copyingWorkflow, setCopyingWorkflow] = useState<string | null>(null);
+  const [workflowsExpanded2, setWorkflowsExpanded2] = useState(false);
+  const [copyingAllWorkflows, setCopyingAllWorkflows] = useState(false);
 
   // Filter out pull requests from the main list
   const issuesOnly = issues.filter(issue => !issue.pull_request);
@@ -93,7 +122,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
         title: newTitle,
         body: newBody,
         labels: ['jules'],
-        assignees: ['copilot-swe-agent[bot]']
+        assignees: selectedAssignees
       });
       setIsModalOpen(false);
       setNewTitle('');
@@ -225,6 +254,80 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   };
 
+  // Load reference workflows when secrets modal opens
+  const loadReferenceWorkflows = React.useCallback(async () => {
+    setLoadingReferenceWorkflows(true);
+    try {
+      const workflows = await fetchReferenceWorkflows(token);
+      setReferenceWorkflows(workflows);
+    } catch (err) {
+      console.error('Failed to load reference workflows:', err);
+    } finally {
+      setLoadingReferenceWorkflows(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (isSecretsModalOpen && referenceWorkflows.length === 0) {
+      loadReferenceWorkflows();
+    }
+  }, [isSecretsModalOpen, referenceWorkflows.length, loadReferenceWorkflows]);
+
+  const handleCopyWorkflow = async (workflow: WorkflowFile) => {
+    setCopyingWorkflow(workflow.path);
+    try {
+      await copyWorkflowToRepo(
+        token,
+        workflow.repoOwner,
+        workflow.repoName,
+        repo.owner.login,
+        repo.name,
+        workflow.path
+      );
+      showError('Workflow copied successfully!'); // Using showError for toast notification
+    } catch (err) {
+      showError('Failed to copy workflow. Ensure your token has "repo" scope.');
+    } finally {
+      setCopyingWorkflow(null);
+    }
+  };
+
+  const handleCopyAllWorkflows = async () => {
+    setCopyingAllWorkflows(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      // Copy workflows sequentially to avoid rate limiting
+      for (const workflow of referenceWorkflows) {
+        try {
+          await copyWorkflowToRepo(
+            token,
+            workflow.repoOwner,
+            workflow.repoName,
+            repo.owner.login,
+            repo.name,
+            workflow.path
+          );
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to copy ${workflow.name}:`, err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0 && failCount === 0) {
+        showError(`Successfully copied all ${successCount} workflows!`);
+      } else if (successCount > 0 && failCount > 0) {
+        showError(`Copied ${successCount} workflows, ${failCount} failed.`);
+      } else {
+        showError('Failed to copy workflows. Ensure your token has "repo" scope.');
+      }
+    } finally {
+      setCopyingAllWorkflows(false);
+    }
+  };
+
 
 
   return (
@@ -238,8 +341,8 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
             Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{repo.full_name}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block">Manage issues and view insights</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors" onClick={() => window.open(repo.html_url, '_blank')}>{repo.full_name}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors hidden sm:block" onClick={() => window.open(repo.html_url, '_blank')}>Manage issues and view insights</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
              {isRefreshing && (
@@ -366,6 +469,67 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
                       placeholder="Describe the issue..."
                     />
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 text-right">Markdown supported</p>
+                 </div>
+
+                 {/* Assignees Selection */}
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assignees</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setAssigneesDropdownOpen(!assigneesDropdownOpen)}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {selectedAssignees.length === 0 ? (
+                            <span className="text-slate-400 dark:text-slate-500">Select assignees...</span>
+                          ) : (
+                            selectedAssignees.map(login => {
+                              const assignee = availableAssignees.find(a => a.login === login);
+                              return (
+                                <span
+                                  key={login}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400"
+                                >
+                                  <User size={12} />
+                                  {assignee?.displayName || login}
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${assigneesDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {assigneesDropdownOpen && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {availableAssignees.map(assignee => {
+                            const isSelected = selectedAssignees.includes(assignee.login);
+                            return (
+                              <button
+                                key={assignee.login}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedAssignees(prev => prev.filter(a => a !== assignee.login));
+                                  } else {
+                                    setSelectedAssignees(prev => [...prev, assignee.login]);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-600 text-left"
+                              >
+                                <div className={`w-4 h-4 border rounded flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300 dark:border-slate-500'}`}>
+                                  {isSelected && <Check size={12} className="text-white" />}
+                                </div>
+                                <User size={14} className="text-slate-400" />
+                                <span className="text-sm text-slate-700 dark:text-slate-300">{assignee.displayName}</span>
+                                <span className="text-xs text-slate-400 dark:text-slate-500">({assignee.login})</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                  </div>
 
                  {/* Workflow Files Reference Section */}
@@ -567,6 +731,64 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
                         ))}
                       </div>
                     )}
+                 </div>
+
+                 {/* Copy Reference Workflows Section */}
+                 <div className="border-t border-slate-200 dark:border-slate-600 pt-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Download size={18} className="text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                          Copy Reference Workflows
+                        </h3>
+                      </div>
+                      {referenceWorkflows.length > 0 && !loadingReferenceWorkflows && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleCopyAllWorkflows}
+                          isLoading={copyingAllWorkflows}
+                          icon={<Copy size={14} />}
+                        >
+                          Copy All ({referenceWorkflows.length})
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                      Copy pre-configured workflows from <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">friuns/VibeGithub</code>
+                    </p>
+                    
+                    <div className="space-y-2">
+                      {loadingReferenceWorkflows ? (
+                        <div className="flex items-center justify-center py-8">
+                          <RefreshCw size={20} className="text-slate-400 animate-spin" />
+                          <span className="ml-2 text-slate-500 dark:text-slate-400">Loading workflows...</span>
+                        </div>
+                      ) : referenceWorkflows.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+                          No reference workflows found
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {referenceWorkflows.map(workflow => (
+                            <div
+                              key={workflow.path}
+                              className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                            >
+                              <FileCode size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-mono text-sm font-medium text-slate-800 dark:text-slate-100 block truncate">
+                                  {workflow.name}
+                                </span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  {workflow.path}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                  </div>
 
                  <div className="pt-4 flex justify-end">
