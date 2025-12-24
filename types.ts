@@ -149,6 +149,7 @@ export interface RepoDraft {
   description: string;
   private: boolean;
   auto_init: boolean;
+  template?: string; // Vite template name (e.g., 'react-ts', 'vue-ts')
 }
 
 export interface WorkflowFile {

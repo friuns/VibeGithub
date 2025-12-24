@@ -617,7 +617,8 @@ export const copySetupWorkflowAndRun = async (
   sourceOwner: string,
   sourceRepo: string,
   targetOwner: string,
-  targetRepo: string
+  targetRepo: string,
+  template?: string
 ): Promise<void> => {
   const setupWorkflowPath = '.github/workflows/setup.yml';
   
@@ -679,7 +680,7 @@ export const copySetupWorkflowAndRun = async (
   // Get the default branch
   const defaultBranch = await getDefaultBranch(token, targetOwner, targetRepo);
   
-  // Trigger the setup workflow
+  // Trigger the setup workflow with template input
   const triggerResponse = await fetch(
     `${GITHUB_API_BASE}/repos/${targetOwner}/${targetRepo}/actions/workflows/setup.yml/dispatches`,
     {
@@ -691,6 +692,9 @@ export const copySetupWorkflowAndRun = async (
       },
       body: JSON.stringify({
         ref: defaultBranch,
+        inputs: {
+          template: template || 'react-ts',
+        },
       }),
     }
   );

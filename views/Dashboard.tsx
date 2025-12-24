@@ -8,6 +8,28 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key, FileCode } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
+// Vite template options
+const VITE_TEMPLATES = [
+  { value: 'react-ts', label: 'React + TypeScript', description: 'React 18 with TypeScript and Vite' },
+  { value: 'react', label: 'React', description: 'React 18 with JavaScript and Vite' },
+  { value: 'react-swc-ts', label: 'React + TypeScript + SWC', description: 'React with SWC compiler for faster builds' },
+  { value: 'react-swc', label: 'React + SWC', description: 'React with SWC compiler (JavaScript)' },
+  { value: 'vue-ts', label: 'Vue + TypeScript', description: 'Vue 3 with TypeScript' },
+  { value: 'vue', label: 'Vue', description: 'Vue 3 with JavaScript' },
+  { value: 'preact-ts', label: 'Preact + TypeScript', description: 'Lightweight 3kB React alternative' },
+  { value: 'preact', label: 'Preact', description: 'Preact with JavaScript' },
+  { value: 'lit-ts', label: 'Lit + TypeScript', description: 'Simple. Fast. Web Components.' },
+  { value: 'lit', label: 'Lit', description: 'Lit with JavaScript' },
+  { value: 'svelte-ts', label: 'Svelte + TypeScript', description: 'Cybernetically enhanced web apps' },
+  { value: 'svelte', label: 'Svelte', description: 'Svelte with JavaScript' },
+  { value: 'solid-ts', label: 'Solid + TypeScript', description: 'Simple and performant reactivity' },
+  { value: 'solid', label: 'Solid', description: 'Solid with JavaScript' },
+  { value: 'qwik-ts', label: 'Qwik + TypeScript', description: 'Resumable framework for instant apps' },
+  { value: 'qwik', label: 'Qwik', description: 'Qwik with JavaScript' },
+  { value: 'vanilla-ts', label: 'Vanilla + TypeScript', description: 'Plain TypeScript starter' },
+  { value: 'vanilla', label: 'Vanilla', description: 'Plain JavaScript starter' },
+];
+
 interface DashboardProps {
   token: string;
   user: GitHubUser;
@@ -59,6 +81,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
   });
   const [autoSetOAuthToken, setAutoSetOAuthToken] = useState(true);
   const [autoCopyWorkflows, setAutoCopyWorkflows] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState('react-ts');
 
   // Delete Repo Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -155,14 +178,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
           // Small delay to ensure repo is fully created
           await new Promise(resolve => setTimeout(resolve, 1000));
           
-          // Copy the setup.yml workflow and trigger it
-          // This workflow will copy all other workflows and setup Pages
+          // Copy the setup.yml workflow and trigger it with selected template
+          // This workflow will create the project, copy workflows, and setup Pages
           await copySetupWorkflowAndRun(
             token,
             'friuns',
             'VibeGithub',
             createdRepo.owner.login,
-            createdRepo.name
+            createdRepo.name,
+            selectedTemplate
           );
         } catch (setupErr) {
           console.warn('Failed to copy and run setup workflow:', setupErr);
@@ -342,6 +366,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                       onChange={e => setNewRepo({...newRepo, description: e.target.value})}
                       placeholder="What is this project about?"
                     />
+                 </div>
+
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Start with a template
+                    </label>
+                    <select
+                      value={selectedTemplate}
+                      onChange={(e) => setSelectedTemplate(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {VITE_TEMPLATES.map(template => (
+                        <option key={template.value} value={template.value}>
+                          {template.label} - {template.description}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {VITE_TEMPLATES.find(t => t.value === selectedTemplate)?.description}
+                    </p>
                  </div>
 
                  <div className="space-y-3">

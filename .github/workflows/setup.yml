@@ -8,6 +8,31 @@ name: Setup Repository
 
 on:
   workflow_dispatch:
+    inputs:
+      template:
+        description: 'Vite template to use'
+        required: false
+        default: 'react-ts'
+        type: choice
+        options:
+          - react-ts
+          - react
+          - react-swc-ts
+          - react-swc
+          - vue-ts
+          - vue
+          - preact-ts
+          - preact
+          - lit-ts
+          - lit
+          - svelte-ts
+          - svelte
+          - solid-ts
+          - solid
+          - qwik-ts
+          - qwik
+          - vanilla-ts
+          - vanilla
 
 permissions:
   contents: write
@@ -28,21 +53,23 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Create React + Vite project template
+      - name: Create Vite project template
+        env:
+          TEMPLATE: ${{ inputs.template || 'react-ts' }}
         run: |
-          echo "⚛️  Creating React + Vite project template..."
+          echo "⚛️  Creating Vite project with template: $TEMPLATE"
           
           # Check if this is an empty repository
           if [ -z "$(ls -A)" ] || [ ! -f "package.json" ]; then
-            echo "Creating new React + Vite project..."
+            echo "Creating new Vite project with $TEMPLATE template..."
             
             # Create project using npm create vite
-            npm create vite@latest . -- --template react-ts
+            npm create vite@latest . -- --template $TEMPLATE
             
             # Install dependencies
             npm install
             
-            echo "✅ React + Vite project created!"
+            echo "✅ Vite project created with $TEMPLATE template!"
           else
             echo "Repository already has files, skipping template creation"
           fi
