@@ -465,3 +465,132 @@ export const deleteRepositorySecret = async (
     throw new Error(data?.message || 'Failed to delete repository secret');
   }
 };
+
+// ============ File Operations API ============
+
+interface FileContent {
+  content: string;
+  sha: string;
+}
+
+/**
+ * Fetch the content of a file from a repository
+ */
+export const fetchFileContent = async (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string
+): Promise<FileContent> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      cache: 'no-cache',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch file content');
+  }
+
+  const data = await response.json();
+
+  // Decode base64 content
+  const content = atob(data.content.replace(/\n/g, ''));
+
+  return {
+    content,
+    sha: data.sha,
+  };
+};
+
+/**
+ * Create or update a file in a repository
+ */
+export const createOrUpdateFile = async (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  sha?: string
+): Promise<void> => {
+  const body: any = {
+    message,
+    content: btoa(content), // Encode to base64
+  };
+
+  if (sha) {
+    body.sha = sha;
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to create or update file');
+  }
+};
+
+/**
+ * Copy workflows from friuns/VibeGithub to a target repository
+ */
+export const copyVibeGithubWorkflows = async (
+  token: string,
+  targetOwner: string,
+  targetRepo: string
+): Promise<void> => {
+  // Fetch workflow files from friuns/VibeGithub
+  const sourceWorkflows = await fetchRepoWorkflowFiles(token, 'friuns', 'VibeGithub');
+
+  // Copy each workflow file
+  for (const workflow of sourceWorkflows) {
+    try {
+      // Fetch the content of the source workflow
+      const { content } = await fetchFileContent(token, 'friuns', 'VibeGithub', workflow.path);
+
+      // Try to get the current file in target repo to check if it exists
+      let existingSha: string | undefined;
+      try {
+        const existing = await fetchFileContent(token, targetOwner, targetRepo, workflow.path);
+        existingSha = existing.sha;
+      } catch (err) {
+        // File doesn't exist, that's fine
+      }
+
+      // Create or update the file in target repo
+      const message = existingSha
+        ? `Update workflow: ${workflow.name}`
+        : `Add workflow: ${workflow.name}`;
+
+      await createOrUpdateFile(
+        token,
+        targetOwner,
+        targetRepo,
+        workflow.path,
+        content,
+        message,
+        existingSha
+      );
+    } catch (err) {
+      console.error(`Failed to copy workflow ${workflow.name}:`, err);
+      throw new Error(`Failed to copy workflow ${workflow.name}: ${err.message}`);
+    }
+  }
+};
