@@ -2,6 +2,7 @@ name: Setup Repository
 # This workflow automates repository setup by:
 # - Copying all workflows from the reference repository (friuns/VibeGithub)
 # - Configuring GitHub Pages with GitHub Actions as the build source
+# - Setting the repository website URL to the GitHub Pages URL
 # - Committing and pushing all changes
 
 on:
@@ -90,6 +91,27 @@ jobs:
           
           echo "✅ GitHub Pages configured with GitHub Actions as the source!"
 
+      - name: Set repository website to GitHub Pages URL
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "🌐 Setting repository website URL..."
+          
+          # Extract owner and repo name
+          OWNER=$(echo $REPO | cut -d'/' -f1)
+          REPO_NAME=$(echo $REPO | cut -d'/' -f2)
+          
+          # Construct GitHub Pages URL
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+          
+          # Update repository with homepage URL
+          gh api -X PATCH repos/$REPO \
+            -f homepage="$PAGES_URL" \
+            2>&1 || echo "⚠️ Could not set homepage URL"
+          
+          echo "✅ Repository website set to: $PAGES_URL"
+
       - name: Setup Summary
         run: |
           echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
@@ -97,12 +119,21 @@ jobs:
           echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
           echo "- Copied workflows from friuns/VibeGithub" >> $GITHUB_STEP_SUMMARY
           echo "- Configured GitHub Pages with GitHub Actions" >> $GITHUB_STEP_SUMMARY
+          echo "- Set repository website to GitHub Pages URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Workflows Installed:" >> $GITHUB_STEP_SUMMARY
           ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Quick Links:" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract owner and repo for Pages URL
+          OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+          
+          echo "- [GitHub Pages Site]($PAGES_URL)" >> $GITHUB_STEP_SUMMARY
           echo "- [GitHub Pages Settings](https://github.com/${{ github.repository }}/settings/pages)" >> $GITHUB_STEP_SUMMARY
           echo "- [Actions](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
           echo "- [Workflows](https://github.com/${{ github.repository }}/tree/main/.github/workflows)" >> $GITHUB_STEP_SUMMARY
+
 
