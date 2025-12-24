@@ -1,5 +1,4 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import { SolidMarkdown } from 'solid-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
@@ -8,7 +7,7 @@ interface MarkdownProps {
   className?: string;
 }
 
-export const Markdown: React.FC<MarkdownProps> = ({ children, className = '' }) => {
+export const Markdown = (props: MarkdownProps) => {
   return (
     <div className={`prose prose-sm max-w-none prose-slate dark:prose-invert
       prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-headings:font-semibold
@@ -30,8 +29,8 @@ export const Markdown: React.FC<MarkdownProps> = ({ children, className = '' }) 
       [&_summary]:before:content-['▶'] [&_summary]:before:inline-block [&_summary]:before:mr-2 [&_summary]:before:text-xs [&_summary]:before:transition-transform
       [&_details[open]>summary]:before:content-['▼']
       [&_details[open]>summary]:mb-2
-      ${className}`}>
-      <ReactMarkdown
+      ${props.className || ''}`}>
+      <SolidMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
         components={{
@@ -43,17 +42,17 @@ export const Markdown: React.FC<MarkdownProps> = ({ children, className = '' }) 
           ),
           // Better image handling
           img: ({ src, alt }) => (
-            <img 
-              src={src} 
-              alt={alt || ''} 
+            <img
+              src={src}
+              alt={alt || ''}
               loading="lazy"
               className="rounded-lg max-w-full h-auto"
             />
           ),
         }}
       >
-        {children}
-      </ReactMarkdown>
+        {props.children}
+      </SolidMarkdown>
     </div>
   );
 };

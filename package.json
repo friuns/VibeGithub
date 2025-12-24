@@ -12,10 +12,8 @@
     "firebase": "^12.7.0",
     "libsodium-wrappers": "^0.7.15",
     "lucide-react": "^0.561.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "react-markdown": "^10.1.0",
-    "recharts": "^3.6.0",
+    "solid-js": "^1.8.17",
+    "solid-markdown": "^2.0.3",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "tweetnacl": "^1.0.3",
@@ -28,9 +26,9 @@
     "@types/node": "^22.14.0",
     "@vercel/node": "^5.5.16",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
-    "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-solid": "^2.10.2",
     "wrangler": "^4.56.0"
   }
 }
