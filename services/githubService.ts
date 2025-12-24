@@ -507,114 +507,320 @@ export const fetchWorkflowContent = async (
 };
 
 /**
- * Create or update a file in a repository
+ * Get the default branch of a repository
  */
-export const createOrUpdateFile = async (
+export const getDefaultBranch = async (
+  token: string,
+  owner: string,
+  repo: string
+): Promise<string> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      cache: 'no-cache',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch repository info');
+  }
+
+  const data = await response.json();
+  return data.default_branch;
+};
+
+/**
+ * Get the latest commit SHA for a branch
+ */
+export const getLatestCommitSha = async (
   token: string,
   owner: string,
   repo: string,
-  path: string,
-  content: string,
-  message: string,
-  sha?: string
-): Promise<void> => {
-  // Encode content to base64
+  branch: string
+): Promise<string> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/git/ref/heads/${branch}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      cache: 'no-cache',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch branch reference');
+  }
+
+  const data = await response.json();
+  return data.object.sha;
+};
+
+/**
+ * Create a blob (file content) in the repository
+ */
+export const createBlob = async (
+  token: string,
+  owner: string,
+  repo: string,
+  content: string
+): Promise<string> => {
   const encodedContent = btoa(unescape(encodeURIComponent(content)));
   
-  const body: any = {
-    message,
-    content: encodedContent,
-  };
-  
-  // If SHA is provided, we're updating an existing file
-  if (sha) {
-    body.sha = sha;
-  }
-  
   const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/git/blobs`,
     {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         Authorization: `token ${token}`,
         Accept: 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        content: encodedContent,
+        encoding: 'base64',
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to create blob');
+  }
+
+  const data = await response.json();
+  return data.sha;
+};
+
+/**
+ * Create a tree with multiple files
+ */
+export const createTree = async (
+  token: string,
+  owner: string,
+  repo: string,
+  baseTreeSha: string,
+  files: Array<{ path: string; sha: string }>
+): Promise<string> => {
+  const tree = files.map(file => ({
+    path: file.path,
+    mode: '100644',
+    type: 'blob',
+    sha: file.sha,
+  }));
+
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/git/trees`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree,
+      }),
     }
   );
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data?.message || 'Failed to create/update file');
+    throw new Error(data?.message || 'Failed to create tree');
   }
+
+  const data = await response.json();
+  return data.sha;
 };
 
 /**
- * Check if a file exists and get its SHA
+ * Create a commit
  */
-export const getFileSha = async (
+export const createCommit = async (
   token: string,
   owner: string,
   repo: string,
-  path: string
-): Promise<string | null> => {
-  try {
-    const response = await fetch(
-      `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
-      {
-        headers: {
-          Authorization: `token ${token}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-        cache: 'no-cache',
-      }
-    );
-    
-    if (response.status === 404) {
-      return null; // File doesn't exist
+  message: string,
+  treeSha: string,
+  parentSha: string
+): Promise<string> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/git/commits`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        tree: treeSha,
+        parents: [parentSha],
+      }),
     }
-    
-    if (!response.ok) {
-      throw new Error('Failed to check file');
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to create commit');
+  }
+
+  const data = await response.json();
+  return data.sha;
+};
+
+/**
+ * Update a branch reference to point to a new commit
+ */
+export const updateBranchRef = async (
+  token: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  commitSha: string
+): Promise<void> => {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sha: commitSha,
+        force: false,
+      }),
     }
-    
-    const data = await response.json();
-    return data.sha;
-  } catch {
-    return null;
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || 'Failed to update branch reference');
   }
 };
 
 /**
- * Copy a workflow from reference repository to target repository
+ * Copy all workflows from source repository to target repository in a single commit
  */
-export const copyWorkflowToRepo = async (
+export const copyAllWorkflowsInOneCommit = async (
   token: string,
   sourceOwner: string,
   sourceRepo: string,
   targetOwner: string,
   targetRepo: string,
-  workflowPath: string
+  workflows: WorkflowFile[]
 ): Promise<void> => {
-  // Fetch the workflow content from source
-  const content = await fetchWorkflowContent(token, sourceOwner, sourceRepo, workflowPath);
+  // Get the default branch
+  const defaultBranch = await getDefaultBranch(token, targetOwner, targetRepo);
   
-  // Check if file exists in target
-  const existingSha = await getFileSha(token, targetOwner, targetRepo, workflowPath);
+  // Get the latest commit SHA
+  const latestCommitSha = await getLatestCommitSha(token, targetOwner, targetRepo, defaultBranch);
   
-  // Create or update the file
-  const message = existingSha 
-    ? `Update ${workflowPath} from ${sourceOwner}/${sourceRepo}`
-    : `Add ${workflowPath} from ${sourceOwner}/${sourceRepo}`;
-    
-  await createOrUpdateFile(
+  // Get the base tree from the latest commit
+  const commitResponse = await fetch(
+    `${GITHUB_API_BASE}/repos/${targetOwner}/${targetRepo}/git/commits/${latestCommitSha}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  );
+  
+  if (!commitResponse.ok) {
+    throw new Error('Failed to fetch commit details');
+  }
+  
+  const commitData = await commitResponse.json();
+  const baseTreeSha = commitData.tree.sha;
+  
+  // Fetch and create blobs for all workflow files
+  const fileBlobs: Array<{ path: string; sha: string }> = [];
+  
+  for (const workflow of workflows) {
+    const content = await fetchWorkflowContent(token, sourceOwner, sourceRepo, workflow.path);
+    const blobSha = await createBlob(token, targetOwner, targetRepo, content);
+    fileBlobs.push({ path: workflow.path, sha: blobSha });
+  }
+  
+  // Create a new tree with all the files
+  const treeSha = await createTree(token, targetOwner, targetRepo, baseTreeSha, fileBlobs);
+  
+  // Create a commit with the new tree
+  const commitMessage = `Add ${workflows.length} workflows from ${sourceOwner}/${sourceRepo}
+
+Workflows added:
+${workflows.map(w => `- ${w.name}`).join('\n')}`;
+  
+  const newCommitSha = await createCommit(
     token,
     targetOwner,
     targetRepo,
-    workflowPath,
-    content,
-    message,
-    existingSha || undefined
+    commitMessage,
+    treeSha,
+    latestCommitSha
   );
+  
+  // Update the branch to point to the new commit
+  await updateBranchRef(token, targetOwner, targetRepo, defaultBranch, newCommitSha);
+};
+
+/**
+ * Enable GitHub Pages for a repository with GitHub Actions as the source
+ */
+export const enableGitHubPages = async (
+  token: string,
+  owner: string,
+  repo: string
+): Promise<void> => {
+  // First, try to create/update Pages configuration
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/pages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        build_type: 'workflow',
+      }),
+    }
+  );
+
+  // If pages already exists, try to update it
+  if (response.status === 409) {
+    const updateResponse = await fetch(
+      `${GITHUB_API_BASE}/repos/${owner}/${repo}/pages`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          build_type: 'workflow',
+        }),
+      }
+    );
+    
+    if (!updateResponse.ok) {
+      throw new Error('Failed to update GitHub Pages configuration');
+    }
+    return;
+  }
+
+  if (!response.ok) {
+    throw new Error('Failed to enable GitHub Pages');
+  }
 };

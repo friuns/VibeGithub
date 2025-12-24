@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, fetchReferenceWorkflows, copyWorkflowToRepo } from '../services/githubService';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, fetchReferenceWorkflows, copyAllWorkflowsInOneCommit, createIssueComment } from '../services/githubService';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield, User, Check, Copy, Download } from 'lucide-react';
@@ -77,8 +77,6 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   // Reference Workflows State
   const [referenceWorkflows, setReferenceWorkflows] = useState<WorkflowFile[]>([]);
   const [loadingReferenceWorkflows, setLoadingReferenceWorkflows] = useState(false);
-  const [copyingWorkflow, setCopyingWorkflow] = useState<string | null>(null);
-  const [workflowsExpanded2, setWorkflowsExpanded2] = useState(false);
   const [copyingAllWorkflows, setCopyingAllWorkflows] = useState(false);
 
   // Filter out pull requests from the main list
@@ -124,6 +122,15 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
         labels: ['jules'],
         assignees: selectedAssignees
       });
+
+      // Automatically add the "/opencode implement" comment to trigger copilot-swe-agent
+      try {
+        await createIssueComment(token, repo.owner.login, repo.name, createdIssue.number, '/opencode implement');
+      } catch (commentErr) {
+        console.error('Failed to add initial comment:', commentErr);
+        // Don't fail the entire operation if comment fails
+      }
+
       setIsModalOpen(false);
       setNewTitle('');
       setNewBody('');
@@ -273,56 +280,23 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   }, [isSecretsModalOpen, referenceWorkflows.length, loadReferenceWorkflows]);
 
-  const handleCopyWorkflow = async (workflow: WorkflowFile) => {
-    setCopyingWorkflow(workflow.path);
-    try {
-      await copyWorkflowToRepo(
-        token,
-        workflow.repoOwner,
-        workflow.repoName,
-        repo.owner.login,
-        repo.name,
-        workflow.path
-      );
-      showError('Workflow copied successfully!'); // Using showError for toast notification
-    } catch (err) {
-      showError('Failed to copy workflow. Ensure your token has "repo" scope.');
-    } finally {
-      setCopyingWorkflow(null);
-    }
-  };
-
   const handleCopyAllWorkflows = async () => {
     setCopyingAllWorkflows(true);
-    let successCount = 0;
-    let failCount = 0;
-
+    
     try {
-      // Copy workflows sequentially to avoid rate limiting
-      for (const workflow of referenceWorkflows) {
-        try {
-          await copyWorkflowToRepo(
-            token,
-            workflow.repoOwner,
-            workflow.repoName,
-            repo.owner.login,
-            repo.name,
-            workflow.path
-          );
-          successCount++;
-        } catch (err) {
-          console.error(`Failed to copy ${workflow.name}:`, err);
-          failCount++;
-        }
-      }
-
-      if (successCount > 0 && failCount === 0) {
-        showError(`Successfully copied all ${successCount} workflows!`);
-      } else if (successCount > 0 && failCount > 0) {
-        showError(`Copied ${successCount} workflows, ${failCount} failed.`);
-      } else {
-        showError('Failed to copy workflows. Ensure your token has "repo" scope.');
-      }
+      await copyAllWorkflowsInOneCommit(
+        token,
+        referenceWorkflows[0].repoOwner,
+        referenceWorkflows[0].repoName,
+        repo.owner.login,
+        repo.name,
+        referenceWorkflows
+      );
+      
+      showError(`Successfully copied all ${referenceWorkflows.length} workflows in one commit!`);
+    } catch (err: any) {
+      console.error('Failed to copy workflows:', err);
+      showError(err?.message || 'Failed to copy workflows. Ensure your token has "repo" scope.');
     } finally {
       setCopyingAllWorkflows(false);
     }

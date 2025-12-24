@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, GitHubUser, RepoDraft, Issue } from '../types';
-import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret } from '../services/githubService';
+import { fetchRepositories, createRepository, deleteRepository, setRepositorySecret, fetchReferenceWorkflows, copyAllWorkflowsInOneCommit, enableGitHubPages } from '../services/githubService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key } from 'lucide-react';
+import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key, FileCode } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
 
 interface DashboardProps {
@@ -58,6 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     auto_init: true
   });
   const [autoSetOAuthToken, setAutoSetOAuthToken] = useState(true);
+  const [autoCopyWorkflows, setAutoCopyWorkflows] = useState(true);
 
   // Delete Repo Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -148,9 +149,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
         }
       }
       
+      // Auto-copy workflows if checkbox is checked
+      if (autoCopyWorkflows) {
+        try {
+          // Small delay to ensure repo is fully created
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const workflows = await fetchReferenceWorkflows(token);
+          if (workflows.length > 0) {
+            await copyAllWorkflowsInOneCommit(
+              token,
+              'friuns',
+              'VibeGithub',
+              createdRepo.owner.login,
+              createdRepo.name,
+              workflows
+            );
+            
+            // Enable GitHub Pages with GitHub Actions as the source
+            try {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              await enableGitHubPages(token, createdRepo.owner.login, createdRepo.name);
+            } catch (pagesErr) {
+              console.warn('Failed to enable GitHub Pages:', pagesErr);
+              // Don't fail if Pages configuration fails
+            }
+          }
+        } catch (workflowErr) {
+          console.warn('Failed to auto-copy workflows:', workflowErr);
+          // Don't fail the whole operation if workflow copying fails
+        }
+      }
+      
       setIsCreateModalOpen(false);
       setNewRepo({ name: '', description: '', private: false, auto_init: true });
       setAutoSetOAuthToken(true);
+      setAutoCopyWorkflows(true);
       
       // Manually add the new repo to the top of the list
       setRepos(prev => [createdRepo, ...prev]);
@@ -382,6 +415,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                         <div>
                           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-set OAUTH_TOKEN secret</span>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Adds your token as a repository secret for GitHub Actions</p>
+                        </div>
+                      </div>
+                    </label>
+                 </div>
+
+                 {/* Auto-copy Workflows */}
+                 <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={autoCopyWorkflows}
+                        onChange={(e) => setAutoCopyWorkflows(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <FileCode size={16} className="text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Copy workflows from VibeGithub</span>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Automatically adds pre-configured GitHub Actions workflows</p>
                         </div>
                       </div>
                     </label>
