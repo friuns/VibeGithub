@@ -1,4 +1,8 @@
 name: Setup Repository
+# This workflow automates repository setup by:
+# - Copying all workflows from the reference repository (friuns/VibeGithub)
+# - Configuring GitHub Pages with GitHub Actions as the build source
+# - Committing and pushing all changes
 
 on:
   workflow_dispatch:

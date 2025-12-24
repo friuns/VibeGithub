@@ -526,58 +526,6 @@ export const getDefaultBranch = async (
 };
 
 /**
- * Enable GitHub Pages for a repository with GitHub Actions as the source
- */
-export const enableGitHubPages = async (
-  token: string,
-  owner: string,
-  repo: string
-): Promise<void> => {
-  // First, try to create/update Pages configuration
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${repo}/pages`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        build_type: 'workflow',
-      }),
-    }
-  );
-
-  // If pages already exists, try to update it
-  if (response.status === 409) {
-    const updateResponse = await fetch(
-      `${GITHUB_API_BASE}/repos/${owner}/${repo}/pages`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `token ${token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          build_type: 'workflow',
-        }),
-      }
-    );
-    
-    if (!updateResponse.ok) {
-      throw new Error('Failed to update GitHub Pages configuration');
-    }
-    return;
-  }
-
-  if (!response.ok) {
-    throw new Error('Failed to enable GitHub Pages');
-  }
-};
-
-/**
  * Create or update a file in a repository
  */
 const createOrUpdateFile = async (
