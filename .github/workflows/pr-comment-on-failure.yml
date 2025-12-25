@@ -2,7 +2,7 @@ name: "Comment on PR on Workflow Failure"
 
 on:
   workflow_run:
-    workflows: ["Universal Deploy"]  # Monitor only deploy workflow
+    workflows: ["*"]  # Monitor only deploy workflow
     types:
       - completed
 
