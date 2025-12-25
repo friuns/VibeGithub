@@ -2,10 +2,9 @@ name: Universal Deploy
 
 on:
   push:
-    branches:
-      - '**'  # Triggers on push to any branch
+    branches: [ "main" ]  # Only main branch pushes for GitHub Pages
   pull_request:
-    branches: [ "main" ]
+    branches: [ "**" ]  # Pull requests from any branch for Netlify
 
 permissions:
   contents: write  # Changed to write for creating releases
@@ -57,10 +56,10 @@ jobs:
             echo "is-web=false" >> $GITHUB_OUTPUT
             echo "Could not detect project type"
           fi
-  # GitHub Pages deployment (only on main branch, web apps only)
+  # GitHub Pages deployment (only on main branch push, web apps only)
   build-and-deploy-pages:
     needs: detect-project-type
-    if: github.ref == 'refs/heads/main' && needs.detect-project-type.outputs.is-web == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-project-type.outputs.is-web == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -91,10 +90,10 @@ jobs:
       id: deployment
       uses: actions/deploy-pages@v4
 
-  # Netlify deployment (on all branches, web apps only)
+  # Netlify deployment (only on pull requests, web apps only)
   deploy-netlify:
     needs: detect-project-type
-    if: needs.detect-project-type.outputs.is-web == 'true'
+    if: github.event_name == 'pull_request' && needs.detect-project-type.outputs.is-web == 'true'
     runs-on: ubuntu-latest
 
     steps:
