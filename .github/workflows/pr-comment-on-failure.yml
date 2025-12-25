@@ -97,13 +97,19 @@ jobs:
                 const checkRuns = await github.rest.checks.listForRef({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  ref: workflowRun.head_sha,
-                  check_name: job.name // Match by job name
+                  ref: workflowRun.head_sha
                 });
 
                 const jobAnnotationsList = [];
+                const seenAnnotations = new Set(); // Track unique annotations
+
                 for (const checkRun of checkRuns.data.check_runs) {
-                  if (checkRun.conclusion === 'failure') {
+                  // Try to match check run to job by name similarity or external_id
+                  const isRelatedToJob = checkRun.name.includes(job.name) ||
+                                        job.name.includes(checkRun.name) ||
+                                        checkRun.external_id === job.id.toString();
+
+                  if (checkRun.conclusion === 'failure' && isRelatedToJob) {
                     try {
                       const annotations = await github.rest.checks.listAnnotations({
                         owner: context.repo.owner,
@@ -112,7 +118,15 @@ jobs:
                       });
 
                       if (annotations.data.length > 0) {
-                        jobAnnotationsList.push(...annotations.data);
+                        for (const annotation of annotations.data) {
+                          // Create a unique key for deduplication
+                          const annotationKey = `${annotation.message || ''}|${annotation.path || ''}|${annotation.start_line || ''}|${annotation.title || ''}`;
+
+                          if (!seenAnnotations.has(annotationKey)) {
+                            seenAnnotations.add(annotationKey);
+                            jobAnnotationsList.push(annotation);
+                          }
+                        }
                       }
                     } catch (annotationError) {
                       console.log(`Failed to fetch annotations for check run ${checkRun.id}: ${annotationError.message}`);
