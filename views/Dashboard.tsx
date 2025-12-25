@@ -58,7 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     private: false,
     auto_init: false
   });
-  const [autoSetOAuthToken, setAutoSetOAuthToken] = useState(true);
+  const [autoSetAllTokens, setAutoSetAllTokens] = useState(true);
   const [autoCopyWorkflows, setAutoCopyWorkflows] = useState(true);
   const [templates, setTemplates] = useState<GitHubTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -191,14 +191,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       
       // Run automated setup if requested
       await completeRepositorySetup(token, createdRepo.owner.login, createdRepo.name, {
-        setOAuthToken: autoSetOAuthToken,
+        setOAuthToken: autoSetAllTokens,
+        setNetlifyTokens: autoSetAllTokens,
         copyWorkflows: autoCopyWorkflows,
         appDescription: createdRepo.description || '',
       });
       
       setIsCreateModalOpen(false);
       setNewRepo({ name: '', description: '', private: false, auto_init: false });
-      setAutoSetOAuthToken(true);
+      setAutoSetAllTokens(true);
       setAutoCopyWorkflows(true);
       setSelectedTemplate('');
       setTemplateSearch('');
@@ -457,20 +458,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                   </label>
                 </div>
                 
-                {/* Auto-set OAUTH_TOKEN */}
+                {/* Auto-set All Tokens */}
                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
+                      <input
                         type="checkbox"
-                        checked={autoSetOAuthToken}
-                        onChange={(e) => setAutoSetOAuthToken(e.target.checked)}
+                        checked={autoSetAllTokens}
+                        onChange={(e) => setAutoSetAllTokens(e.target.checked)}
                         className="w-4 h-4 text-emerald-600 border-slate-300 dark:border-slate-600 rounded focus:ring-emerald-500"
                       />
                       <div className="flex items-center gap-2">
                         <Key size={16} className="text-emerald-600 dark:text-emerald-400" />
                         <div>
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-set OAUTH_TOKEN secret</span>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Adds your token as a repository secret for GitHub Actions</p>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-set all tokens</span>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Sets OAUTH_TOKEN, NETLIFY_AUTH_TOKEN, and NETLIFY_SITE_ID secrets</p>
                         </div>
                       </div>
                     </label>

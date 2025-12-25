@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
 import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, createIssueComment } from '../services/githubService';
-import { autoSetOAuthToken, setupRepositoryWorkflows } from '../services/repoSetupUtils';
+import { autoSetAllTokens, setupRepositoryWorkflows } from '../services/repoSetupUtils';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield, User, Check, Copy, Download } from 'lucide-react';
@@ -247,14 +247,14 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
   };
 
-  const handleAutoSetOAuthToken = async () => {
+  const handleAutoSetAllTokens = async () => {
     setAutoSetOAuthChecked(true);
     setSavingSecret(true);
     try {
-      await autoSetOAuthToken(token, repo.owner.login, repo.name);
+      await autoSetAllTokens(token, repo.owner.login, repo.name);
       await loadSecrets();
     } catch (err) {
-      showError('Failed to set OAUTH_TOKEN');
+      showError('Failed to set tokens');
     } finally {
       setSavingSecret(false);
     }
@@ -577,24 +577,24 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
               </div>
 
               <div className="p-6 space-y-6">
-                 {/* Quick Action: Auto-set OAUTH_TOKEN */}
+                 {/* Quick Action: Auto-set All Tokens */}
                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Key size={20} className="text-blue-600 dark:text-blue-400" />
                         <div>
-                          <p className="font-medium text-slate-800 dark:text-slate-100">Auto-set OAUTH_TOKEN</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">Use your current token as a secret for Actions</p>
+                          <p className="font-medium text-slate-800 dark:text-slate-100">Auto-set All Tokens</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">Set OAUTH_TOKEN, NETLIFY_AUTH_TOKEN, and NETLIFY_SITE_ID</p>
                         </div>
                       </div>
                       <Button
                         variant="primary"
                         size="sm"
-                        onClick={handleAutoSetOAuthToken}
+                        onClick={handleAutoSetAllTokens}
                         isLoading={savingSecret && autoSetOAuthChecked}
-                        disabled={secrets.some(s => s.name === 'OAUTH_TOKEN')}
+                        disabled={secrets.some(s => s.name === 'OAUTH_TOKEN') && secrets.some(s => s.name === 'NETLIFY_AUTH_TOKEN') && secrets.some(s => s.name === 'NETLIFY_SITE_ID')}
                       >
-                        {secrets.some(s => s.name === 'OAUTH_TOKEN') ? 'Already Set' : 'Set Token'}
+                        {(secrets.some(s => s.name === 'OAUTH_TOKEN') && secrets.some(s => s.name === 'NETLIFY_AUTH_TOKEN') && secrets.some(s => s.name === 'NETLIFY_SITE_ID')) ? 'All Set' : 'Set All Tokens'}
                       </Button>
                     </div>
                  </div>

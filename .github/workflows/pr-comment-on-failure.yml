@@ -50,10 +50,6 @@ jobs:
             // Find failed jobs
             const failedJobs = jobs.data.jobs.filter(job => job.conclusion === 'failure');
 
-            // Limit to 5 failed jobs to avoid overwhelming comments
-            const maxFailures = 5;
-            const limitedFailedJobs = failedJobs.slice(0, maxFailures);
-
             // Get the PR that triggered this workflow
             const pullRequests = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
@@ -68,9 +64,9 @@ jobs:
 
             const pr = pullRequests.data[0];
 
-            // Fetch logs for failed jobs (limited to maxFailures)
+            // Fetch logs for failed jobs
             const jobLogs = {};
-            for (const job of limitedFailedJobs) {
+            for (const job of failedJobs) {
               try {
                 const logsResponse = await github.rest.actions.downloadJobLogsForWorkflowRun({
                   owner: context.repo.owner,
@@ -103,12 +99,8 @@ jobs:
             commentBody += `**Commit:** ${workflowRun.head_sha.substring(0, 7)}\n`;
             commentBody += `**Triggered by:** @${workflowRun.triggering_actor.login}\n\n`;
 
-            if (failedJobs.length > maxFailures) {
-              commentBody += `⚠️ **Note:** Showing ${maxFailures} of ${failedJobs.length} failed jobs\n\n`;
-            }
-
-            if (limitedFailedJobs.length > 0) {
-              for (const job of limitedFailedJobs) {
+            if (failedJobs.length > 0) {
+              for (const job of failedJobs) {
                 commentBody += `### ❌ ${job.name}\n\n`;
                 
                 if (job.steps) {
@@ -141,7 +133,9 @@ jobs:
               comment.body.includes(`Run: [#${workflowRun.run_number}]`)
             );
 
-            if (!alreadyCommented) {
+            const totalComments = existingComments.data.length;
+
+            if (!alreadyCommented && totalComments < 10) {
               // Post the comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -151,6 +145,8 @@ jobs:
               });
 
               console.log(`✅ Posted failure comment on PR #${pr.number}`);
-            } else {
+            } else if (alreadyCommented) {
               console.log(`ℹ️ Already commented on PR #${pr.number} for this workflow run`);
+            } else if (totalComments >= 3) {
+              console.log(`ℹ️ Skipping comment on PR #${pr.number} - PR already has ${totalComments} comments (>= 10)`);
             }

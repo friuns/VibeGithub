@@ -1,19 +1,70 @@
-name: Deploy to GitHub Pages
+name: Universal Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '**'  # Triggers on push to any branch
   pull_request:
     branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write  # Changed to write for creating releases
   pages: write
   id-token: write
+  deployments: write
+  pull-requests: write
+  issues: write
+  # Additional permissions for Android APK builds and releases
+  packages: write
 
 jobs:
-  build:
+  detect-project-type:
     runs-on: ubuntu-latest
+    outputs:
+      project-type: ${{ steps.detect.outputs.project-type }}
+      is-android: ${{ steps.detect.outputs.is-android }}
+      is-web: ${{ steps.detect.outputs.is-web }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Project Type
+        id: detect
+        run: |
+          # Check for Android project indicators
+          if [ -d "android" ] || [ -f "build.gradle" ] || [ -f "build.gradle.kts" ] || [ -f "AndroidManifest.xml" ]; then
+            echo "project-type=android" >> $GITHUB_OUTPUT
+            echo "is-android=true" >> $GITHUB_OUTPUT
+            echo "is-web=false" >> $GITHUB_OUTPUT
+            echo "Detected Android project"
+          elif [ -f "package.json" ]; then
+            # Check for React Native/Capacitor/Ionic indicators in package.json
+            if grep -q '"react-native"' package.json || grep -q '"capacitor"' package.json || grep -q '"@ionic"' package.json; then
+              echo "project-type=android" >> $GITHUB_OUTPUT
+              echo "is-android=true" >> $GITHUB_OUTPUT
+              echo "is-web=false" >> $GITHUB_OUTPUT
+              echo "Detected React Native/Capacitor/Ionic project"
+            else
+              echo "project-type=web" >> $GITHUB_OUTPUT
+              echo "is-android=false" >> $GITHUB_OUTPUT
+              echo "is-web=true" >> $GITHUB_OUTPUT
+              echo "Detected web project"
+            fi
+          else
+            echo "project-type=unknown" >> $GITHUB_OUTPUT
+            echo "is-android=false" >> $GITHUB_OUTPUT
+            echo "is-web=false" >> $GITHUB_OUTPUT
+            echo "Could not detect project type"
+          fi
+  # GitHub Pages deployment (only on main branch, web apps only)
+  build-and-deploy-pages:
+    needs: detect-project-type
+    if: github.ref == 'refs/heads/main' && needs.detect-project-type.outputs.is-web == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
     - name: Checkout
@@ -36,13 +87,212 @@ jobs:
       with:
         path: './dist'
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+  # Netlify deployment (on all branches, web apps only)
+  deploy-netlify:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-web == 'true'
     runs-on: ubuntu-latest
-    needs: build
+
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Netlify
+        id: netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-branch: master
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions - ${{ github.event.head_commit.message }}"
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+          overwrites-pull-request-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 1
+
+      - name: Create Deployment Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployUrl = '${{ steps.netlify.outputs.deploy-url }}';
+
+            // Create a deployment
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: context.ref === 'refs/heads/master' ? 'production' : 'preview',
+              auto_merge: false,
+              required_contexts: [],
+              description: `Netlify deployment for ${context.ref}`
+            });
+
+            if (deployment.data.id) {
+              // Set deployment status to success with the URL
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.data.id,
+                state: 'success',
+                environment_url: deployUrl,
+                log_url: deployUrl,
+                description: 'Deployment successful'
+              });
+            }
+
+            // Find associated PRs for this commit and comment
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha
+            });
+
+            for (const pr of prs.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `## 🚀 Netlify Deployment\n\n**Deploy URL:** ${deployUrl}\n\n**Branch:** \`${{ github.ref_name }}\`\n**Commit:** \`${context.sha.substring(0, 7)}\``
+              });
+            }
+
+            // Write to job summary
+            await core.summary
+              .addHeading('🚀 Netlify Deployment')
+              .addLink('Deploy URL', deployUrl)
+              .addRaw(`\n\n**Branch:** \`${{ github.ref_name }}\``)
+              .write();
+
+  # Android APK build and release
+  build-android-apk:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-android == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Make gradlew executable
+        if: ${{ needs.detect-project-type.outputs.project-type == 'android' }}
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        if: ${{ needs.detect-project-type.outputs.project-type == 'android' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            gradle assembleDebug
+          else
+            echo "Could not find Gradle wrapper or build.gradle file"
+            exit 1
+          fi
+
+      - name: Build React Native Android APK
+        if: ${{ needs.detect-project-type.outputs.project-type == 'android' && contains(needs.detect-project-type.outputs.project-type, 'react-native') }}
+        run: |
+          npm ci
+          npx react-native run-android --variant=debug
+          # For React Native, the APK will be in android/app/build/outputs/apk/debug/
+
+      - name: Find APK file
+        id: apk-path
+        run: |
+          # Try different common APK locations
+          APK_PATH=""
+          if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
+          elif [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          elif find . -name "*.apk" -type f | head -1; then
+            APK_PATH=$(find . -name "*.apk" -type f | head -1)
+          else
+            echo "APK file not found"
+            exit 1
+          fi
+          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK at: $APK_PATH"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}-android-${{ github.run_number }}
+          release_name: Android Debug APK - ${{ github.ref_name }} #${{ github.run_number }}
+          body: |
+            Android Debug APK for branch `${{ github.ref_name }}`
+
+            **Build Details:**
+            - Branch: `${{ github.ref_name }}`
+            - Commit: `${{ github.sha }}`
+            - Build: ${{ github.run_number }}
+            - Build Date: ${{ github.event.head_commit.timestamp }}
+
+            This is an automated release containing the debug APK.
+          draft: false
+          prerelease: true
+
+      - name: Upload APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.apk-path.outputs.apk-path }}
+          asset_name: app-debug-${{ github.ref_name }}-${{ github.run_number }}.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const apkName = `app-debug-${{ github.ref_name }}-${{ github.run_number }}.apk`;
+            const releaseUrl = `${{ steps.create_release.outputs.html_url }}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 📱 Android Debug APK Ready\n\n**Release:** ${releaseUrl}\n\n**APK Download:** [${apkName}](${releaseUrl})\n\n**Branch:** \`${{ github.ref_name }}\`\n**Commit:** \`${context.sha.substring(0, 7)}\``
+            });
