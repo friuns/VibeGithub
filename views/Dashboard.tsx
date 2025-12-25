@@ -207,7 +207,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       setRepos(prev => [createdRepo, ...prev]);
       
     } catch (err) {
-      showError("Failed to create repository. Note: You need 'repo' scope token permissions.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to create repository";
+      showError(errorMessage);
     } finally {
       setIsCreating(false);
     }
@@ -231,7 +232,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       setRepos(prev => prev.filter(r => r.id !== repoToDelete.id));
       
     } catch (err) {
-      showError("Failed to delete repository. Note: You need 'delete_repo' scope token permissions.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete repository";
+      showError(errorMessage);
     } finally {
       setIsDeleting(false);
     }

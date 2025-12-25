@@ -173,7 +173,8 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create repository');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Failed to create repository: ${errorData.message || 'Unknown error'}`);
   }
 
   return response.json();
