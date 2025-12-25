@@ -2,7 +2,7 @@ name: "Comment on PR on Workflow Failure"
 
 on:
   workflow_run:
-    workflows: ["*"]  # Monitor all workflows
+    workflows: ["Universal Deploy"]  # Monitor only deploy workflow
     types:
       - completed
 
@@ -92,7 +92,7 @@ jobs:
             }
 
             // Build the comment body
-            let commentBody = `@jules\n\n`;
+            let commentBody = `@copilot @jules\n\n`;
             commentBody += `## ❌ Workflow Failed\n\n`;
             commentBody += `**Workflow:** ${workflowRun.name}\n`;
             commentBody += `**Run:** #${workflowRun.run_number}\n`;
