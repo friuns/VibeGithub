@@ -64,8 +64,9 @@ jobs:
 
             const pr = pullRequests.data[0];
 
-            // Fetch logs for failed jobs
+            // Fetch logs and annotations for failed jobs
             const jobLogs = {};
+            const jobAnnotations = {};
             for (const job of failedJobs) {
               try {
                 const logsResponse = await github.rest.actions.downloadJobLogsForWorkflowRun({
@@ -73,21 +74,56 @@ jobs:
                   repo: context.repo.repo,
                   job_id: job.id
                 });
-                
+
                 // The response is the log content as a string
                 let logs = logsResponse.data;
-                
+
                 // Extract last 100 lines to keep comment size manageable
                 const lines = logs.split('\n');
                 const maxLines = 100;
                 if (lines.length > maxLines) {
                   logs = `... (truncated ${lines.length - maxLines} lines)\n\n` + lines.slice(-maxLines).join('\n');
                 }
-                
+
                 jobLogs[job.id] = logs;
               } catch (error) {
                 console.log(`Failed to fetch logs for job ${job.name}: ${error.message}`);
                 jobLogs[job.id] = 'Unable to fetch logs: '+error.message;
+              }
+
+              // Fetch annotations for this job
+              try {
+                // Get check runs for the commit to find the check run associated with this job
+                const checkRuns = await github.rest.checks.listForRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: workflowRun.head_sha,
+                  check_name: job.name // Match by job name
+                });
+
+                const jobAnnotationsList = [];
+                for (const checkRun of checkRuns.data.check_runs) {
+                  if (checkRun.conclusion === 'failure') {
+                    try {
+                      const annotations = await github.rest.checks.listAnnotations({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        check_run_id: checkRun.id
+                      });
+
+                      if (annotations.data.length > 0) {
+                        jobAnnotationsList.push(...annotations.data);
+                      }
+                    } catch (annotationError) {
+                      console.log(`Failed to fetch annotations for check run ${checkRun.id}: ${annotationError.message}`);
+                    }
+                  }
+                }
+
+                jobAnnotations[job.id] = jobAnnotationsList;
+              } catch (error) {
+                console.log(`Failed to fetch annotations for job ${job.name}: ${error.message}`);
+                jobAnnotations[job.id] = [];
               }
             }
 
@@ -114,6 +150,34 @@ jobs:
                 commentBody += `<details>\n<summary>📋 View Logs</summary>\n\n`;
                 commentBody += `\`\`\`\n${jobLogs[job.id] || 'No logs available'}\n\`\`\`\n`;
                 commentBody += `</details>\n\n`;
+
+                // Add annotations if available
+                if (jobAnnotations[job.id] && jobAnnotations[job.id].length > 0) {
+                  commentBody += `<details>\n<summary>🔍 View Annotations (${jobAnnotations[job.id].length})</summary>\n\n`;
+
+                  for (const annotation of jobAnnotations[job.id]) {
+                    const levelEmoji = {
+                      'notice': 'ℹ️',
+                      'warning': '⚠️',
+                      'failure': '❌'
+                    }[annotation.annotation_level] || '❓';
+
+                    commentBody += `**${levelEmoji} ${annotation.annotation_level.toUpperCase()}:** ${annotation.title || 'No title'}\n`;
+                    if (annotation.message) {
+                      commentBody += `${annotation.message}\n`;
+                    }
+                    if (annotation.path && annotation.start_line) {
+                      commentBody += `*File: ${annotation.path}:${annotation.start_line}`;
+                      if (annotation.end_line && annotation.end_line !== annotation.start_line) {
+                        commentBody += `-${annotation.end_line}`;
+                      }
+                      commentBody += `*\n`;
+                    }
+                    commentBody += `\n---\n\n`;
+                  }
+
+                  commentBody += `</details>\n\n`;
+                }
               }
             }
 
