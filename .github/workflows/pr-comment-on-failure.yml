@@ -50,6 +50,10 @@ jobs:
             // Find failed jobs
             const failedJobs = jobs.data.jobs.filter(job => job.conclusion === 'failure');
 
+            // Limit to 5 failed jobs to avoid overwhelming comments
+            const maxFailures = 5;
+            const limitedFailedJobs = failedJobs.slice(0, maxFailures);
+
             // Get the PR that triggered this workflow
             const pullRequests = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
@@ -64,9 +68,9 @@ jobs:
 
             const pr = pullRequests.data[0];
 
-            // Fetch logs for failed jobs
+            // Fetch logs for failed jobs (limited to maxFailures)
             const jobLogs = {};
-            for (const job of failedJobs) {
+            for (const job of limitedFailedJobs) {
               try {
                 const logsResponse = await github.rest.actions.downloadJobLogsForWorkflowRun({
                   owner: context.repo.owner,
@@ -99,8 +103,12 @@ jobs:
             commentBody += `**Commit:** ${workflowRun.head_sha.substring(0, 7)}\n`;
             commentBody += `**Triggered by:** @${workflowRun.triggering_actor.login}\n\n`;
 
-            if (failedJobs.length > 0) {
-              for (const job of failedJobs) {
+            if (failedJobs.length > maxFailures) {
+              commentBody += `⚠️ **Note:** Showing ${maxFailures} of ${failedJobs.length} failed jobs\n\n`;
+            }
+
+            if (limitedFailedJobs.length > 0) {
+              for (const job of limitedFailedJobs) {
                 commentBody += `### ❌ ${job.name}\n\n`;
                 
                 if (job.steps) {
