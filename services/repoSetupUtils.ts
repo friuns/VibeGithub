@@ -47,8 +47,6 @@ export const completeRepositorySetup = async (
 
 /**
  * Automatically set the OAUTH_TOKEN secret for a repository
- * Note: The token must have 'repo' scope (classic PAT) or 'Actions: Read' permission (fine-grained PAT)
- * to enable workflow log fetching capabilities.
  */
 export const autoSetOAuthToken = async (
   token: string,
@@ -60,8 +58,6 @@ export const autoSetOAuthToken = async (
 
 /**
  * Automatically set all required tokens for a repository (OAUTH_TOKEN, NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID)
- * Note: The OAUTH_TOKEN must have 'repo' scope (classic PAT) or 'Actions: Read' permission (fine-grained PAT)
- * to enable workflow log fetching capabilities.
  */
 export const autoSetAllTokens = async (
   token: string,

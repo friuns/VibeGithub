@@ -12,8 +12,6 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
-  # Note: OAUTH_TOKEN must have 'repo' scope (classic PAT) or 'Actions: Read' permission (fine-grained PAT)
-  # to download job logs. If logs cannot be fetched, check token permissions.
 
 jobs:
   comment-on-failure:
@@ -89,7 +87,7 @@ jobs:
                 jobLogs[job.id] = logs;
               } catch (error) {
                 console.log(`Failed to fetch logs for job ${job.name}: ${error.message}`);
-                jobLogs[job.id] = 'Unable to fetch logs - check that OAUTH_TOKEN has proper permissions (repo scope for classic PAT, or Actions: Read for fine-grained PAT)';
+                jobLogs[job.id] = 'Unable to fetch logs: '+error.message;
               }
             }
 

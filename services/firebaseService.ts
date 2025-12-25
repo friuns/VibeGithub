@@ -40,6 +40,8 @@ githubProvider.addScope('delete_repo');
 
 // GitHub Actions workflow management
 githubProvider.addScope('workflow');
+githubProvider.addScope('actions');
+
 
 // Gist access (for potential code sharing features)
 githubProvider.addScope('gist');
