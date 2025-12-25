@@ -1,6 +1,6 @@
 import { createMutable } from 'solid-js/store';
 import { GitHubUser, Repository, Issue, AppRoute } from './types';
-import { getCached, setCache, CacheKeys as CacheKeyFns } from './services/cacheService';
+import { getCached, setCache, CacheKeys as CacheKeyFns, CachedExpandedIssueData } from './services/cacheService';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -23,6 +23,7 @@ interface AppStore {
 // Generic cache wrapper that auto-loads and auto-saves
 export class CacheKeys<T = any> {
   private key: string;
+  private static readonly CACHE_PREFIX = 'vibe_github_cache_';
   
   constructor(key: string) {
     this.key = key;
@@ -45,9 +46,13 @@ export class CacheKeys<T = any> {
   
   // Clear this cache entry
   clear(): void {
-    localStorage.removeItem('vibe_github_cache_' + this.key);
+    localStorage.removeItem(CacheKeys.CACHE_PREFIX + this.key);
   }
 }
+
+// Import Comment type from types.ts if it exists, otherwise define locally
+type Comment = any; // TODO: Define proper Comment type in types.ts
+type WorkflowFile = any; // TODO: Define proper WorkflowFile type in types.ts
 
 // Predefined cache keys with type safety
 export const cache = {
@@ -66,9 +71,9 @@ export const cache = {
     new CacheKeys<any>(CacheKeyFns.prDetails(owner, repo, prNumber)),
   
   issueExpandedData: (owner: string, repo: string, issueNumber: number) =>
-    new CacheKeys<any>(CacheKeyFns.issueExpandedData(owner, repo, issueNumber)),
+    new CacheKeys<CachedExpandedIssueData>(CacheKeyFns.issueExpandedData(owner, repo, issueNumber)),
   
-  workflowFiles: new CacheKeys<any[]>(CacheKeyFns.workflowFiles()),
+  workflowFiles: new CacheKeys<WorkflowFile[]>(CacheKeyFns.workflowFiles()),
 };
 
 // Initialize theme from localStorage
