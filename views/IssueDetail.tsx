@@ -6,7 +6,8 @@ import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { Markdown } from '../components/Markdown';
 import { ArrowLeft, MessageCircle, AlertCircle, CheckCircle2, GitPullRequest, PlayCircle, Package, Download, Rocket, RefreshCw } from 'lucide-solid';
-import { getCached, setCache, CacheKeys, CachedExpandedIssueData } from '../services/cacheService';
+import { cache } from '../store';
+import { CachedExpandedIssueData } from '../services/cacheService';
 
 interface IssueDetailProps {
   token: string;
@@ -18,13 +19,13 @@ interface IssueDetailProps {
 export const IssueDetail: Component<IssueDetailProps> = (props) => {
   const { toasts, dismissToast, showSuccess, showError, showInfo } = useToast();
   
-  // Cache keys
-  const issuesCacheKey = CacheKeys.repoIssues(props.repo.owner.login, props.repo.name);
-  const expandedCacheKey = CacheKeys.issueExpandedData(props.repo.owner.login, props.repo.name, props.issue.number);
+  // Cache instances
+  const issuesCache = cache.repoIssues(props.repo.owner.login, props.repo.name);
+  const expandedCache = cache.issueExpandedData(props.repo.owner.login, props.repo.name, props.issue.number);
   
   // Get cached data for instant display
-  const cachedData = getCached<CachedExpandedIssueData>(expandedCacheKey);
-  const cachedIssues = getCached<Issue[]>(issuesCacheKey) || [];
+  const cachedData = expandedCache.get();
+  const cachedIssues = issuesCache.getOrDefault([]);
   
   const state = createMutable({
     comments: (cachedData?.comments || []) as Comment[],
@@ -77,7 +78,7 @@ export const IssueDetail: Component<IssueDetailProps> = (props) => {
       state.workflowRuns = workflowData;
       
       // Cache the data
-      setCache(expandedCacheKey, {
+      expandedCache.set({
         comments: state.comments,
         workflowRuns: state.workflowRuns,
         prDetails: Object.fromEntries(state.prDetails),

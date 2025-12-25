@@ -5,7 +5,7 @@ import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield } from 'lucide-solid';
-import { getCached, setCache, CacheKeys } from '../services/cacheService';
+import { cache } from '../store';
 
 interface RepoDetailProps {
   token: string;
@@ -16,17 +16,17 @@ interface RepoDetailProps {
 
 export const RepoDetail: Component<RepoDetailProps> = (props) => {
   const { toasts, dismissToast, showError } = useToast();
-  const cacheKey = CacheKeys.repoIssues(props.repo.owner.login, props.repo.name);
+  const issuesCache = cache.repoIssues(props.repo.owner.login, props.repo.name);
   
   // Initialize from cache for instant display
-  const cachedIssues = getCached<Issue[]>(cacheKey) || [];
-  const cachedWorkflows = getCached<WorkflowFile[]>(CacheKeys.workflowFiles()) || [];
+  const cachedIssues = issuesCache.getOrDefault([]);
+  const cachedWorkflows = cache.workflowFiles.getOrDefault([]);
   
   let bodyTextareaRef: HTMLTextAreaElement | undefined;
   
   const state = createMutable({
     issues: cachedIssues,
-    loading: !getCached<Issue[]>(cacheKey),
+    loading: issuesCache.get() === null,
     isRefreshing: false,
     isModalOpen: false,
     creating: false,
@@ -61,7 +61,7 @@ export const RepoDetail: Component<RepoDetailProps> = (props) => {
     try {
       const data = await fetchIssues(props.token, props.repo.owner.login, props.repo.name);
       state.issues = data;
-      setCache(cacheKey, data);
+      issuesCache.set(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -103,11 +103,11 @@ export const RepoDetail: Component<RepoDetailProps> = (props) => {
     
     state.loadingWorkflows = true;
     try {
-      const repos = getCached<Repository[]>(CacheKeys.repos()) || [];
+      const repos = cache.repos.getOrDefault([]);
       if (repos.length > 0) {
         const workflows = await fetchAllWorkflowFiles(props.token, repos);
         state.workflowFiles = workflows;
-        setCache(CacheKeys.workflowFiles(), workflows);
+        cache.workflowFiles.set(workflows);
       }
     } catch (err) {
       console.error('Failed to load workflow files:', err);

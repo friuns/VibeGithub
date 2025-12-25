@@ -7,7 +7,7 @@ import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key } from 'lucide-solid';
-import { getCached, setCache, CacheKeys } from '../services/cacheService';
+import { cache } from '../store';
 
 interface DashboardProps {
   token: string;
@@ -20,12 +20,12 @@ export const Dashboard: Component<DashboardProps> = (props) => {
   const { toasts, dismissToast, showError } = useToast();
   
   // Initialize from cache for instant display
-  const cachedRepos = getCached<Repository[]>(CacheKeys.repos()) || [];
-  const cachedReposMap = getCached<Repository[]>(CacheKeys.repos());
+  const cachedRepos = cache.repos.getOrDefault([]);
+  const hasCachedRepos = cache.repos.get() !== null;
   
   const state = createMutable({
     repos: cachedRepos,
-    loading: !cachedReposMap,
+    loading: !hasCachedRepos,
     isRefreshing: false,
     error: '',
     pinnedRepoIds: (() => {
@@ -33,11 +33,11 @@ export const Dashboard: Component<DashboardProps> = (props) => {
       return saved ? new Set<number>(JSON.parse(saved)) : new Set<number>();
     })(),
     repoIssues: (() => {
-      if (!cachedReposMap) return {} as Record<number, Issue[]>;
+      if (!hasCachedRepos) return {} as Record<number, Issue[]>;
       
       const issuesMap: Record<number, Issue[]> = {};
-      for (const repo of cachedReposMap.slice(0, 4)) {
-        const cachedIssues = getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name));
+      for (const repo of cachedRepos.slice(0, 4)) {
+        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name).get();
         if (cachedIssues) {
           issuesMap[repo.id] = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
         }
@@ -76,15 +76,14 @@ export const Dashboard: Component<DashboardProps> = (props) => {
       const data = await fetchRepositories(props.token);
       state.repos = data;
       // Cache the repos for instant display on next visit
-      setCache(CacheKeys.repos(), data);
+      cache.repos.set(data);
       
       // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
       const issuesMap: Record<number, Issue[]> = {};
       
       for (const repo of reposToShow) {
-        const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
-        const cachedIssues = getCached<Issue[]>(cacheKey);
+        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name).get();
         
         if (cachedIssues) {
           // Reuse cached issues - filter to actual issues (not PRs) and take first 3
