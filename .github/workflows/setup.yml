@@ -13,6 +13,10 @@ on:
         description: 'Template repository to clone (e.g., owner/repo). Leave empty to skip.'
         required: false
         default: ''
+      app_description:
+        description: 'Description of the application (optional). Used for documentation and setup guidance.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -139,6 +143,48 @@ jobs:
           
           echo "✅ Repository website set to: $PAGES_URL"
 
+      - name: Create deployment configuration issue
+        if: ${{ github.event.inputs.template_repo != '' || github.event.inputs.app_description != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          APP_DESCRIPTION: ${{ github.event.inputs.app_description }}
+        run: |
+          echo "📝 Creating deployment configuration issue..."
+          
+          # Create JSON payload for the issue
+          cat > /tmp/issue_payload.json << 'JSON_EOF'
+          {
+            "title": "🚀 Configure Deployment Strategy",
+            "labels": ["setup", "deployment", "enhancement"],
+            "body": "## Deployment Configuration Needed\n\nAPP_DESCRIPTION_PLACEHOLDER\n\nPlease update the `.github/workflows/netlify-deploy.yml` workflow based on your project type:\n\n### 📱 For Native Applications (Desktop/Mobile)\n\nIf this is a native app (Electron, React Native, Flutter, etc.):\n\n1. Configure the workflow to build platform-specific binaries:\n   - **Android**: Build APK/AAB files\n   - **iOS**: Build IPA files (requires Apple certificates)\n   - **Desktop**: Build executables (exe, dmg, AppImage, etc.)\n\n2. Upload built artifacts to GitHub Releases\n\n3. Consider using tools like:\n   - `electron-builder` for Electron apps\n   - `react-native` CLI for React Native\n   - `flutter build` for Flutter apps\n\n### 🌐 For Web Applications\n\nIf this is a web app:\n\n1. Keep the Netlify deployment workflow\n2. Ensure you have:\n   - A Netlify account and site configured\n   - `NETLIFY_AUTH_TOKEN` secret set in repository settings\n   - `NETLIFY_SITE_ID` secret set in repository settings\n\n3. Update build commands if needed in the workflow\n\n### 📋 Action Items\n\n- [ ] Determine project type (native or web)\n- [ ] Update `netlify-deploy.yml` accordingly\n- [ ] Add necessary secrets to repository settings\n- [ ] Test the deployment workflow\n- [ ] Remove this issue when complete\n\n---\n\n**Current workflow location**: [`.github/workflows/netlify-deploy.yml`](https://github.com/REPO_PLACEHOLDER/blob/BRANCH_PLACEHOLDER/.github/workflows/netlify-deploy.yml)"
+          }
+          JSON_EOF
+          
+          # Replace placeholders
+          if [ -n "$APP_DESCRIPTION" ]; then
+            # Escape the description for JSON
+            ESCAPED_DESC=$(echo "$APP_DESCRIPTION" | jq -Rs .)
+            sed -i "s|APP_DESCRIPTION_PLACEHOLDER|### 📝 Application Description\n\n$APP_DESCRIPTION\n|g" /tmp/issue_payload.json
+          else
+            sed -i 's|APP_DESCRIPTION_PLACEHOLDER||g' /tmp/issue_payload.json
+          fi
+          
+          sed -i "s|REPO_PLACEHOLDER|$REPO|g" /tmp/issue_payload.json
+          sed -i "s|BRANCH_PLACEHOLDER|${{ github.ref_name }}|g" /tmp/issue_payload.json
+          
+          # Create issue using GitHub API
+          curl -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/$REPO/issues" \
+            -d @/tmp/issue_payload.json \
+            || echo "⚠️ Could not create issue (may already exist or insufficient permissions)"
+          
+          rm -f /tmp/issue_payload.json
+          echo "✅ Deployment configuration issue created!"
+
       - name: Setup Summary
         run: |
           echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
@@ -152,6 +198,17 @@ jobs:
           echo "- Copied workflows from friuns/VibeGithub" >> $GITHUB_STEP_SUMMARY
           echo "- Configured GitHub Pages with GitHub Actions" >> $GITHUB_STEP_SUMMARY
           echo "- Set repository website to GitHub Pages URL" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.template_repo }}" != "" ] || [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "- Created deployment configuration issue" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📝 Application Description:" >> $GITHUB_STEP_SUMMARY
+            echo "${{ github.event.inputs.app_description }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Workflows Installed:" >> $GITHUB_STEP_SUMMARY
           ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- None" >> $GITHUB_STEP_SUMMARY
@@ -167,4 +224,8 @@ jobs:
           echo "- [GitHub Pages Settings](https://github.com/${{ github.repository }}/settings/pages)" >> $GITHUB_STEP_SUMMARY
           echo "- [Actions](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
           echo "- [Workflows](https://github.com/${{ github.repository }}/tree/main/.github/workflows)" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.template_repo }}" != "" ] || [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "- [Issues](https://github.com/${{ github.repository }}/issues)" >> $GITHUB_STEP_SUMMARY
+          fi
 

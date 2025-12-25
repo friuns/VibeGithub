@@ -149,6 +149,7 @@ export const createRepository = async (token: string, repo: RepoDraft): Promise<
           ref: newRepo.default_branch || 'main',
           inputs: {
             template_repo: `${owner}/${repoName}`,
+            app_description: newRepo.description || '',
           },
         }),
       });
@@ -712,7 +713,8 @@ export const copySetupWorkflowAndRun = async (
   sourceOwner: string,
   sourceRepo: string,
   targetOwner: string,
-  targetRepo: string
+  targetRepo: string,
+  appDescription?: string
 ): Promise<void> => {
   const setupWorkflowPath = '.github/workflows/setup.yml';
   
@@ -786,6 +788,9 @@ export const copySetupWorkflowAndRun = async (
       },
       body: JSON.stringify({
         ref: defaultBranch,
+        inputs: {
+          app_description: appDescription || '',
+        },
       }),
     }
   );

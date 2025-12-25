@@ -56,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     name: '',
     description: '',
     private: false,
-    auto_init: true
+    auto_init: false
   });
   const [autoSetOAuthToken, setAutoSetOAuthToken] = useState(true);
   const [autoCopyWorkflows, setAutoCopyWorkflows] = useState(true);
@@ -193,10 +193,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       await completeRepositorySetup(token, createdRepo.owner.login, createdRepo.name, {
         setOAuthToken: autoSetOAuthToken,
         copyWorkflows: autoCopyWorkflows,
+        appDescription: createdRepo.description || '',
       });
       
       setIsCreateModalOpen(false);
-      setNewRepo({ name: '', description: '', private: false, auto_init: true });
+      setNewRepo({ name: '', description: '', private: false, auto_init: false });
       setAutoSetOAuthToken(true);
       setAutoCopyWorkflows(true);
       setSelectedTemplate('');
@@ -387,13 +388,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                       <select 
                         className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         value={selectedTemplate}
-                        onChange={e => {
-                          setSelectedTemplate(e.target.value);
-                          // If template is selected, disable auto_init as template provides content
-                          if (e.target.value) {
-                            setNewRepo({...newRepo, auto_init: false});
-                          }
-                        }}
+                        onChange={e => setSelectedTemplate(e.target.value)}
                       >
                         <option value="">None - Start from scratch</option>
                         {templates.map((template) => (
@@ -457,21 +452,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                        onChange={() => setNewRepo({...newRepo, private: true})}
                        className="w-4 h-4 text-blue-600 border-slate-300 dark:border-slate-600 focus:ring-blue-500"
                      />
-                   </label>
-                 </div>
-                 
-                 <div className="flex items-center gap-2 pt-2">
-                    <input 
-                      type="checkbox"
-                      id="auto_init"
-                      checked={newRepo.auto_init}
-                      onChange={(e) => setNewRepo({...newRepo, auto_init: e.target.checked})}
-                      className="w-4 h-4 text-blue-600 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="auto_init" className="text-sm text-slate-700 dark:text-slate-300">Initialize with a README</label>
-                 </div>
-
-                 {/* Auto-set OAUTH_TOKEN */}
+                  </label>
+                </div>
+                
+                {/* Auto-set OAUTH_TOKEN */}
                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input 

@@ -3,6 +3,7 @@ import { setRepositorySecret, copySetupWorkflowAndRun } from './githubService';
 interface RepositorySetupOptions {
   setOAuthToken?: boolean;
   copyWorkflows?: boolean;
+  appDescription?: string;
 }
 
 /**
@@ -14,7 +15,7 @@ export const completeRepositorySetup = async (
   repo: string,
   options: RepositorySetupOptions
 ): Promise<void> => {
-  const { setOAuthToken = false, copyWorkflows = false } = options;
+  const { setOAuthToken = false, copyWorkflows = false, appDescription } = options;
 
   try {
     // Set OAUTH_TOKEN secret if requested
@@ -28,7 +29,7 @@ export const completeRepositorySetup = async (
       const sourceOwner = owner; // Use the same owner for now
       const sourceRepo = 'VibeGithub';
       
-      await copySetupWorkflowAndRun(token, sourceOwner, sourceRepo, owner, repo);
+      await copySetupWorkflowAndRun(token, sourceOwner, sourceRepo, owner, repo, appDescription);
     }
   } catch (error) {
     // Log error but don't fail the entire creation
@@ -54,12 +55,13 @@ export const autoSetOAuthToken = async (
 export const setupRepositoryWorkflows = async (
   token: string,
   owner: string,
-  repo: string
+  repo: string,
+  appDescription?: string
 ): Promise<void> => {
   // Use the same owner and VibeGithub as source
   const sourceOwner = owner;
   const sourceRepo = 'VibeGithub';
   
-  await copySetupWorkflowAndRun(token, sourceOwner, sourceRepo, owner, repo);
+  await copySetupWorkflowAndRun(token, sourceOwner, sourceRepo, owner, repo, appDescription);
 };
 
