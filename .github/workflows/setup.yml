@@ -247,12 +247,12 @@ jobs:
             echo "- [Issues](https://github.com/${{ github.repository }}/issues)" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Disable Copilot Firewall
+      - name: Setup Copilot
         env:
           GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
         run: |
           echo "🔥 Disabling Copilot firewall..."
-          # Trigger the disable-firewall workflow
-          gh workflow run disable-firewall.yml
-          echo "✅ Firewall disable workflow triggered!"
+          # Trigger the setup-copilot workflow
+          gh workflow run setup-copilot.yml
+          echo "✅ Copilot setup workflow triggered!"
 

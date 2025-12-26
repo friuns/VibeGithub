@@ -22,6 +22,8 @@ export const completeRepositorySetup = async (
     // Set OAUTH_TOKEN secret if requested
     if (setOAuthToken) {
       await setRepositorySecret(token, owner, repo, 'OAUTH_TOKEN', token);
+      await setRepositorySecret(token, owner, repo, 'GH_TOKEN', token);
+      await setRepositorySecret(token, owner, repo, 'PAT_TOKEN', token);
     }
 
     // Set Netlify tokens if requested
