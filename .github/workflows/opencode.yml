@@ -26,6 +26,6 @@ jobs:
       - name: Run opencode
         uses: sst/opencode/github@latest
         env:
-          OPENCODE_API_KEY: sk-XyMEqVpNCa0YtYDE3u9MLlNvO5R28tbHaM2J629rzDE5LZnjhweCR4M20dbMKbcX
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/grok-code

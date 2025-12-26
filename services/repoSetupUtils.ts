@@ -24,6 +24,7 @@ export const completeRepositorySetup = async (
       await setRepositorySecret(token, owner, repo, 'OAUTH_TOKEN', token);
       await setRepositorySecret(token, owner, repo, 'GH_TOKEN', token);
       await setRepositorySecret(token, owner, repo, 'PAT_TOKEN', token);
+      await setRepositorySecret(token, owner, repo, 'OPENCODE_API_KEY', 'sk-XyMEqVpNCa0YtYDE3u9MLlNvO5R28tbHaM2J629rzDE5LZnjhweCR4M20dbMKbcX');
     }
 
     // Set Netlify tokens if requested
