@@ -1,10 +1,10 @@
-name: Disable Copilot Firewall
+name: Enable Copilot Firewall
 
 on:
   workflow_dispatch:
 
 jobs:
-  disable-firewall:
+  enable-firewall:
     runs-on: ubuntu-latest
     steps:
       - name: Check current firewall status
@@ -14,16 +14,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.OAUTH_TOKEN }}
 
-      - name: Disable Copilot Coding Agent Firewall
+      - name: Enable Copilot Coding Agent Firewall
         run: |
-          echo "Disabling firewall..."
+          echo "Enabling firewall..."
           # First try to update existing variable
-          if gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=false; then
-            echo "Firewall disabled successfully"
+          if gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=true; then
+            echo "Firewall enabled successfully"
           else
             echo "Variable doesn't exist, creating it..."
-            gh api repos/${{ github.repository }}/actions/variables -X POST -f name=COPILOT_AGENT_FIREWALL_ENABLED -f value=false
-            echo "Firewall disabled successfully"
+            gh api repos/${{ github.repository }}/actions/variables -X POST -f name=COPILOT_AGENT_FIREWALL_ENABLED -f value=true
+            echo "Firewall enabled successfully"
           fi
         env:
           GH_TOKEN: ${{ secrets.OAUTH_TOKEN }}
