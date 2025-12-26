@@ -7,16 +7,30 @@ jobs:
   disable-firewall:
     runs-on: ubuntu-latest
     steps:
-      - name: Instructions
+      - name: Check current firewall status
         run: |
-          echo "This workflow demonstrates how to disable the Copilot firewall."
-          echo ""
-          echo "Due to GitHub token permissions, this workflow cannot directly modify"
-          echo "repository variables. To disable the firewall manually, run:"
-          echo ""
-          echo "gh api repos/YOUR_REPO/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=false"
-          echo ""
-          echo "Replace YOUR_REPO with your repository name (e.g., friuns/VibeGithub)"
-          echo ""
-          echo "Current status check:"
-          echo "Note: This will fail due to permissions, but shows the command format"
+          echo "Current firewall status:"
+          gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED || echo "Variable not found"
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN }}
+
+      - name: Disable Copilot Coding Agent Firewall
+        run: |
+          echo "Disabling firewall..."
+          # First try to update existing variable
+          if gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=false; then
+            echo "Firewall disabled successfully"
+          else
+            echo "Variable doesn't exist, creating it..."
+            gh api repos/${{ github.repository }}/actions/variables -X POST -f name=COPILOT_AGENT_FIREWALL_ENABLED -f value=false
+            echo "Firewall disabled successfully"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN }}
+
+      - name: Verify firewall status
+        run: |
+          echo "Final firewall status:"
+          gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN }}
