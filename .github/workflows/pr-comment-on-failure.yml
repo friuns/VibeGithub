@@ -142,7 +142,7 @@ jobs:
             }
 
             // Build the comment body
-            let commentBody = `@copilot @jules\n\n`;
+            let commentBody = `@jules\n\n`;
             commentBody += `## ❌ Workflow Failed\n\n`;
             commentBody += `**Workflow:** ${workflowRun.name}\n`;
             commentBody += `**Run:** #${workflowRun.run_number}\n`;
