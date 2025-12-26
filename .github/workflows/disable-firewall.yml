@@ -6,21 +6,17 @@ on:
 jobs:
   disable-firewall:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write  # Required to modify repository variables
     steps:
-      - name: Check current firewall status
+      - name: Instructions
         run: |
-          echo "Current firewall status:"
-          gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Disable Copilot Coding Agent Firewall
-        run: |
-          echo "Disabling firewall..."
-          gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=false
-          echo "Firewall disabled successfully"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "This workflow demonstrates how to disable the Copilot firewall."
+          echo ""
+          echo "Due to GitHub token permissions, this workflow cannot directly modify"
+          echo "repository variables. To disable the firewall manually, run:"
+          echo ""
+          echo "gh api repos/YOUR_REPO/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED -X PATCH -f value=false"
+          echo ""
+          echo "Replace YOUR_REPO with your repository name (e.g., friuns/VibeGithub)"
+          echo ""
+          echo "Current status check:"
+          echo "Note: This will fail due to permissions, but shows the command format"
