@@ -158,7 +158,7 @@ jobs:
           {
             "title": "🚀 Create app",
             "labels": ["jules"],
-            "body": "APP_DESCRIPTION_PLACEHOLDER\n\ncreate $APP_DESCRIPTION then update deploy.yml to deploy the app"
+            "body": "APP_DESCRIPTION_PLACEHOLDER\n\ncreate $APP_DESCRIPTION then update deploy.yml to deploy the app on netlify or build apk"
           }
           JSON_EOF
 

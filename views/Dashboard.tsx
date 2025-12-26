@@ -184,6 +184,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
     try {
       const repoToCreate = {
         ...newRepo,
+        description: newRepo.description || newRepo.name,
         template_repository: selectedTemplate || undefined
       };
       
