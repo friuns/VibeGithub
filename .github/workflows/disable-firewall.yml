@@ -12,6 +12,8 @@ jobs:
         run: |
           echo "Current firewall status:"
           gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED || echo "Variable not found"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Disable Copilot Coding Agent Firewall
         run: |
@@ -24,8 +26,12 @@ jobs:
             gh api repos/${{ github.repository }}/actions/variables -X POST -f name=COPILOT_AGENT_FIREWALL_ENABLED -f value=false
             echo "Firewall disabled successfully"
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Verify firewall status
         run: |
           echo "Final firewall status:"
           gh api repos/${{ github.repository }}/actions/variables/COPILOT_AGENT_FIREWALL_ENABLED
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
