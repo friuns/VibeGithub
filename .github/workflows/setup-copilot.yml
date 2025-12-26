@@ -6,6 +6,8 @@ on:
 jobs:
   disable-firewall:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check current firewall status
         run: |
