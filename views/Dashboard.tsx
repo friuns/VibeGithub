@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Repository, GitHubUser, RepoDraft, Issue, GitHubTemplate } from '../types';
-import { fetchRepositories, createRepository, deleteRepository, fetchGitHubTemplates } from '../services/githubService';
+import { fetchRepositories, createRepository, deleteRepository, fetchGitHubTemplates, fetchIssues, fetchPullRequests, fetchWorkflowRuns, fetchDeployments } from '../services/githubService';
 import { completeRepositorySetup } from '../services/repoSetupUtils';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
@@ -142,23 +142,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       // Cache the repos for instant display on next visit
       setCache(CacheKeys.repos(), data);
       
-      // Load issues for first 4 repos - reuse cache when available
-      const reposToShow = data.slice(0, 4);
+      // Pre-fetch issues, PRs, actions, and deployments for the top 4 repos
+      const reposToPreload = data.slice(0, 4);
       const issuesMap: Record<number, Issue[]> = {};
-      
-      for (const repo of reposToShow) {
-        const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
-        const cachedIssues = getCached<Issue[]>(cacheKey);
-        
-        if (cachedIssues) {
-          // Reuse cached issues - filter to actual issues (not PRs) and take first 3
-          const actualIssues = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
+
+      await Promise.allSettled(reposToPreload.map(async (repo) => {
+        try {
+          // Fetch all data in parallel
+          const [issues, pullRequests, workflowRuns, deployments] = await Promise.all([
+            fetchIssues(token, repo.owner.login, repo.name),
+            fetchPullRequests(token, repo.owner.login, repo.name),
+            fetchWorkflowRuns(token, repo.owner.login, repo.name),
+            fetchDeployments(token, repo.owner.login, repo.name),
+          ]);
+
+          // Cache each dataset
+          setCache(CacheKeys.repoIssues(repo.owner.login, repo.name), issues);
+          setCache(CacheKeys.repoPullRequests(repo.owner.login, repo.name), pullRequests);
+          setCache(CacheKeys.workflowRuns(repo.owner.login, repo.name), workflowRuns);
+          setCache(CacheKeys.repoDeployments(repo.owner.login, repo.name), deployments);
+
+          // Update the local state for immediate UI update (for issues)
+          const actualIssues = issues.filter(issue => !issue.pull_request).slice(0, 3);
           issuesMap[repo.id] = actualIssues;
+
+        } catch (error) {
+          // Log errors but don't block the UI
+          console.error(`Failed to preload data for ${repo.name}:`, error);
         }
-        // If not cached, leave empty - issues will be cached when user visits repo detail
-      }
+      }));
       
-      setRepoIssues(issuesMap);
+      setRepoIssues(prev => ({ ...prev, ...issuesMap }));
     } catch (err) {
       // Only show error if we don't have cached data to display
       if (!hasCachedData) {

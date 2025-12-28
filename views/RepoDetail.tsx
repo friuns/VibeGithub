@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Repository, Issue, WorkflowFile, RepoSecret } from '../types';
-import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, createIssueComment } from '../services/githubService';
+import { Repository, Issue, WorkflowFile, RepoSecret, WorkflowRun, Deployment } from '../types';
+import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets, setRepositorySecret, deleteRepositorySecret, createIssueComment, fetchPullRequests, fetchWorkflowRuns, fetchDeployments } from '../services/githubService';
 import { autoSetAllTokens, setupRepositoryWorkflows } from '../services/repoSetupUtils';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
@@ -16,15 +16,17 @@ interface RepoDetailProps {
 
 export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onIssueSelect }) => {
   const { toasts, dismissToast, showError } = useToast();
-  const cacheKey = CacheKeys.repoIssues(repo.owner.login, repo.name);
   
-  // Initialize from cache for instant display
-  const [issues, setIssues] = useState<Issue[]>(() => {
-    return getCached<Issue[]>(cacheKey) || [];
-  });
+  // Initialize all data from cache for instant display
+  const [issues, setIssues] = useState<Issue[]>(() => getCached<Issue[]>(CacheKeys.repoIssues(repo.owner.login, repo.name)) || []);
+  const [pullRequests, setPullRequests] = useState<Issue[]>(() => getCached<Issue[]>(CacheKeys.repoPullRequests(repo.owner.login, repo.name)) || []);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>(() => getCached<WorkflowRun[]>(CacheKeys.workflowRuns(repo.owner.login, repo.name)) || []);
+  const [deployments, setDeployments] = useState<Deployment[]>(() => getCached<Deployment[]>(CacheKeys.repoDeployments(repo.owner.login, repo.name)) || []);
+
   const [loading, setLoading] = useState(() => {
-    // Only show loading if no cached data
-    return !getCached<Issue[]>(cacheKey);
+    // Show loading if any of the primary data is not cached
+    return !getCached(CacheKeys.repoIssues(repo.owner.login, repo.name)) ||
+           !getCached(CacheKeys.repoPullRequests(repo.owner.login, repo.name));
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,10 +83,9 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
   // Filter out pull requests from the main list
   const issuesOnly = issues.filter(issue => !issue.pull_request);
 
-  const loadIssues = React.useCallback(async (isManualRefresh = false) => {
-    const hasCachedData = issues.length > 0;
+  const loadRepoData = React.useCallback(async (isManualRefresh = false) => {
+    const hasCachedData = issues.length > 0 || pullRequests.length > 0;
     
-    // Show full loading only on first load with no cache
     if (!hasCachedData) {
       setLoading(true);
     } else if (isManualRefresh) {
@@ -92,21 +93,38 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     }
     
     try {
-      const data = await fetchIssues(token, repo.owner.login, repo.name);
-      setIssues(data);
-      // Cache the issues for instant display on next visit
-      setCache(cacheKey, data);
+      // Fetch all data in parallel
+      const [fetchedIssues, fetchedPrs, fetchedRuns, fetchedDeployments] = await Promise.all([
+        fetchIssues(token, repo.owner.login, repo.name),
+        fetchPullRequests(token, repo.owner.login, repo.name),
+        fetchWorkflowRuns(token, repo.owner.login, repo.name),
+        fetchDeployments(token, repo.owner.login, repo.name),
+      ]);
+
+      // Update state
+      setIssues(fetchedIssues);
+      setPullRequests(fetchedPrs);
+      setWorkflowRuns(fetchedRuns);
+      setDeployments(fetchedDeployments);
+
+      // Cache all the data for next time
+      setCache(CacheKeys.repoIssues(repo.owner.login, repo.name), fetchedIssues);
+      setCache(CacheKeys.repoPullRequests(repo.owner.login, repo.name), fetchedPrs);
+      setCache(CacheKeys.workflowRuns(repo.owner.login, repo.name), fetchedRuns);
+      setCache(CacheKeys.repoDeployments(repo.owner.login, repo.name), fetchedDeployments);
+
     } catch (err) {
       console.error(err);
+      showError("Failed to load repository data.");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [token, repo, cacheKey, issues.length]);
+  }, [token, repo, issues.length, pullRequests.length, showError]);
 
   useEffect(() => {
     // Always fetch fresh data on mount, but show cached immediately
-    loadIssues(false);
+    loadRepoData(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateIssue = async (e: React.FormEvent) => {
@@ -301,7 +319,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
              {isRefreshing && (
                <span className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">Updating...</span>
              )}
-             <Button variant="secondary" onClick={() => loadIssues(true)} icon={<RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />} disabled={isRefreshing}>
+             <Button variant="secondary" onClick={() => loadRepoData(true)} icon={<RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />} disabled={isRefreshing}>
                Refresh
              </Button>
              <Button variant="secondary" onClick={() => setIsSecretsModalOpen(true)} icon={<Key size={16} />}>
