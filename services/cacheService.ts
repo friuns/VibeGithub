@@ -68,6 +68,8 @@ export const CacheKeys = {
   prDetails: (owner: string, repo: string, prNumber: number) => `pr_${owner}_${repo}_${prNumber}`,
   issueExpandedData: (owner: string, repo: string, issueNumber: number) => `expanded_${owner}_${repo}_${issueNumber}`,
   workflowFiles: () => 'workflow_files',
+  deploymentsBySha: (owner: string, repo: string, sha: string) => `deployments_${owner}_${repo}_${sha}`,
+  deploymentStatuses: (owner: string, repo: string, deploymentId: number) => `deployment_statuses_${owner}_${repo}_${deploymentId}`,
 };
 
 // Type for cached expanded issue data (all data needed for expanded view)

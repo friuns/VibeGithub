@@ -8,6 +8,7 @@ import { ToastContainer, useToast } from '../components/Toast';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { LogOut, RefreshCw, Plus, X, Lock, Globe, AlertTriangle, Key, FileCode, Sparkles } from 'lucide-react';
 import { getCached, setCache, CacheKeys } from '../services/cacheService';
+import { prefetchTopReposData } from '../services/startupDataService';
 
 interface DashboardProps {
   token: string;
@@ -158,16 +159,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
         // If not cached, leave empty - issues will be cached when user visits repo detail
       }
       
-      setRepoIssues(issuesMap);
-    } catch (err) {
-      // Only show error if we don't have cached data to display
-      if (!hasCachedData) {
-        setError('Failed to load repositories.');
-      }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
+       setRepoIssues(issuesMap);
+
+       // Prefetch expanded data for top repos in background for instant issue loading
+       prefetchTopReposData(token, data).catch(err => console.warn('Prefetch failed:', err));
+     } catch (err) {
+       // Only show error if we don't have cached data to display
+       if (!hasCachedData) {
+         setError('Failed to load repositories.');
+       }
+     } finally {
+       setLoading(false);
+       setIsRefreshing(false);
+     }
   }, [token, repos.length]);
 
   useEffect(() => {
