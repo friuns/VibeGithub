@@ -19,6 +19,38 @@ export const validateToken = async (token: string): Promise<GitHubUser> => {
   return response.json();
 };
 
+export const fetchPullRequests = async (token: string, owner: string, repo: string): Promise<Issue[]> => {
+  const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls?state=all&per_page=30&sort=updated&direction=desc`, {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+    cache: 'no-cache',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch pull requests');
+  }
+
+  return response.json();
+};
+
+export const fetchDeployments = async (token: string, owner: string, repo: string): Promise<Deployment[]> => {
+  const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/deployments?per_page=30`, {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+    cache: 'no-cache',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch deployments');
+  }
+
+  return response.json();
+};
+
 export const fetchRepositories = async (token: string, page = 1): Promise<Repository[]> => {
   const response = await fetch(`${GITHUB_API_BASE}/user/repos?sort=updated&per_page=12&page=${page}`, {
     headers: {
