@@ -55,7 +55,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
   const [newRepo, setNewRepo] = useState<RepoDraft>({
     name: '',
     description: '',
-    private: false,
+    private: true,
     auto_init: false
   });
   const [autoSetAllTokens, setAutoSetAllTokens] = useState(true);
@@ -195,11 +195,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
         setOAuthToken: autoSetAllTokens,
         setNetlifyTokens: autoSetAllTokens,
         copyWorkflows: autoCopyWorkflows,
+        createAgentsMd: autoSetAllTokens,
         appDescription: createdRepo.description || '',
       });
       
       setIsCreateModalOpen(false);
-      setNewRepo({ name: '', description: '', private: false, auto_init: false });
+      setNewRepo({ name: '', description: '', private: true, auto_init: false });
       setAutoSetAllTokens(true);
       setAutoCopyWorkflows(true);
       setSelectedTemplate('');
@@ -472,7 +473,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
                         <Key size={16} className="text-emerald-600 dark:text-emerald-400" />
                         <div>
                           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-set all tokens</span>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Sets OAUTH_TOKEN, NETLIFY_AUTH_TOKEN, and NETLIFY_SITE_ID secrets</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Sets OAUTH_TOKEN, NETLIFY_AUTH_TOKEN, and NETLIFY_SITE_ID secrets + creates agents.md</p>
                         </div>
                       </div>
                     </label>

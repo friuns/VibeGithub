@@ -629,7 +629,7 @@ export const getDefaultBranch = async (
 /**
  * Create or update a file in a repository
  */
-const createOrUpdateFile = async (
+export const createOrUpdateFile = async (
   token: string,
   owner: string,
   repo: string,

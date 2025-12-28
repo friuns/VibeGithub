@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+   "bs58": "^6.0.0",
     "firebase": "^12.7.0",
     "libsodium-wrappers": "^0.7.15",
     "lucide-react": "^0.561.0",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251219.0",
     "@netlify/functions": "^5.1.1",
+    "@types/bs58": "^4.0.4",
     "@types/node": "^22.14.0",
     "@vercel/node": "^5.5.16",
     "@vitejs/plugin-basic-ssl": "^2.1.0",

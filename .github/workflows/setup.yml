@@ -156,7 +156,7 @@ jobs:
           # Create JSON payload for the issue
           cat > /tmp/issue_payload.json << JSON_EOF
           {
-            "title": "🚀 Create app",
+            "title": "🚀",
             "labels": ["jules"],
             "body": "APP_DESCRIPTION_PLACEHOLDER\n\ncreate $APP_DESCRIPTION then update deploy.yml to deploy the app on netlify or build apk"
           }

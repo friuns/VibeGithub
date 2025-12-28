@@ -117,7 +117,7 @@ export const RepoDetail: React.FC<RepoDetailProps> = ({ token, repo, onBack, onI
     try {
       const createdIssue = await createIssue(token, repo.owner.login, repo.name, {
         title: newTitle,
-        body: newBody,
+        body: newBody.trim() === '' ? newTitle : newBody,
         labels: ['jules'],
         assignees: selectedAssignees
       });
