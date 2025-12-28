@@ -1,9 +1,14 @@
 // Service for prefetching and caching data for top repositories
 // This enables instant loading when users navigate to repo details
 
-import { Repository, Issue, WorkflowRun, PullRequestDetails, Deployment, DeploymentStatus, Artifact } from '../types';
+import { Repository, Issue, WorkflowRun, PullRequestDetails, Deployment, DeploymentStatus, Artifact, Comment } from '../types';
 import { fetchIssues, fetchWorkflowRuns, fetchPullRequestDetails, fetchDeploymentsBySha, fetchDeploymentStatuses, fetchArtifacts, fetchComments } from './githubService';
 import { setCache, CacheKeys, CachedExpandedIssueData } from './cacheService';
+
+// Configuration constants for prefetch limits
+const MAX_ISSUES_TO_PREFETCH = 5;
+const MAX_PRS_TO_PREFETCH = 10;
+const MAX_WORKFLOW_RUNS_FOR_ARTIFACTS = 10;
 
 /**
  * Prefetch all data needed for a single repository
@@ -25,8 +30,8 @@ async function prefetchRepoData(token: string, repo: Repository): Promise<void> 
     const pullRequestsOnly = issues.filter(i => i.pull_request);
 
     // For each issue, prefetch its expanded data (comments, related PRs, etc.)
-    // We'll prioritize the first 5 issues since they're most likely to be viewed
-    const issuesToPrefetch = issues.filter(i => !i.pull_request).slice(0, 5);
+    // We'll prioritize the first MAX_ISSUES_TO_PREFETCH issues since they're most likely to be viewed
+    const issuesToPrefetch = issues.filter(i => !i.pull_request).slice(0, MAX_ISSUES_TO_PREFETCH);
 
     for (const issue of issuesToPrefetch) {
       try {
@@ -37,8 +42,8 @@ async function prefetchRepoData(token: string, repo: Repository): Promise<void> 
       }
     }
 
-    // Prefetch PR details for all PRs (up to 10)
-    const prsToCache = pullRequestsOnly.slice(0, 10);
+    // Prefetch PR details for all PRs (up to MAX_PRS_TO_PREFETCH)
+    const prsToCache = pullRequestsOnly.slice(0, MAX_PRS_TO_PREFETCH);
     const prDetailPromises = prsToCache.map(async (pr) => {
       try {
         const details = await fetchPullRequestDetails(token, repo.owner.login, repo.name, pr.number);
@@ -106,7 +111,7 @@ async function prefetchIssueExpandedData(
     });
 
     const prCommentResults = await Promise.all(prCommentPromises);
-    const prCommentsMap = new Map<number, any[]>();
+    const prCommentsMap = new Map<number, Comment[]>();
     prCommentResults.forEach(({ prNumber, comments: prComments }) => {
       prCommentsMap.set(prNumber, prComments);
     });
@@ -140,7 +145,7 @@ async function prefetchIssueExpandedData(
     // Fetch artifacts only for workflow runs that match related PR SHAs
     const relatedRunsForArtifacts = workflowRuns
       .filter(r => r.head_sha && relatedShas.has(r.head_sha))
-      .slice(0, 10);
+      .slice(0, MAX_WORKFLOW_RUNS_FOR_ARTIFACTS);
 
     const artifactPromises = relatedRunsForArtifacts.map(async (run) => {
       try {
