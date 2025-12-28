@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Repository, GitHubUser, RepoDraft, Issue, GitHubTemplate } from '../types';
 import { fetchRepositories, createRepository, deleteRepository, fetchGitHubTemplates } from '../services/githubService';
 import { completeRepositorySetup } from '../services/repoSetupUtils';
+import { prefetchTopReposData } from '../services/prefetchService';
 import { RepoCard } from '../components/RepoCard';
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
@@ -159,6 +160,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, user, onRepoSelect,
       }
       
       setRepoIssues(issuesMap);
+      
+      // Prefetch data for top 4 repos in the background (don't await)
+      // This populates the cache so repo detail views load instantly
+      if (data.length > 0) {
+        prefetchTopReposData(token, data, 4).catch(err => {
+          console.error('Background prefetch failed:', err);
+          // Don't show error to user - this is a background optimization
+        });
+      }
     } catch (err) {
       // Only show error if we don't have cached data to display
       if (!hasCachedData) {
