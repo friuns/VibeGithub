@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { Markdown } from '../components/Markdown';
 import { ArrowLeft, MessageCircle, AlertCircle, CheckCircle2, GitPullRequest, PlayCircle, Package, Download, Rocket, RefreshCw } from 'lucide-solid';
-import { cache } from '../store';
+import { cache, setIssueExpandedDataCache } from '../store';
 import { CachedExpandedIssueData } from '../services/cacheService';
 
 interface IssueDetailProps {
@@ -19,13 +19,9 @@ interface IssueDetailProps {
 export const IssueDetail: Component<IssueDetailProps> = (props) => {
   const { toasts, dismissToast, showSuccess, showError, showInfo } = useToast();
   
-  // Cache instances
-  const issuesCache = cache.repoIssues(props.repo.owner.login, props.repo.name);
-  const expandedCache = cache.issueExpandedData(props.repo.owner.login, props.repo.name, props.issue.number);
-  
-  // Get cached data for instant display
-  const cachedData = expandedCache.get();
-  const cachedIssues = issuesCache.getOrDefault([]);
+  // Get cached data for instant display - Proxy automatically loads from cache
+  const cachedData = cache.issueExpandedData(props.repo.owner.login, props.repo.name, props.issue.number);
+  const cachedIssues = cache.repoIssues(props.repo.owner.login, props.repo.name);
   
   const state = createMutable({
     comments: (cachedData?.comments || []) as Comment[],
@@ -77,8 +73,8 @@ export const IssueDetail: Component<IssueDetailProps> = (props) => {
       const workflowData = await fetchWorkflowRuns(props.token, props.repo.owner.login, props.repo.name);
       state.workflowRuns = workflowData;
       
-      // Cache the data
-      expandedCache.set({
+      // Cache the data using helper
+      setIssueExpandedDataCache(props.repo.owner.login, props.repo.name, props.issue.number, {
         comments: state.comments,
         workflowRuns: state.workflowRuns,
         prDetails: Object.fromEntries(state.prDetails),

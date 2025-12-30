@@ -20,60 +20,110 @@ interface AppStore {
   selectedIssue: Issue | null;
 }
 
-// Generic cache wrapper that auto-loads and auto-saves
-export class CacheKeys<T = any> {
-  private key: string;
-  private static readonly CACHE_PREFIX = 'vibe_github_cache_';
-  
-  constructor(key: string) {
-    this.key = key;
-  }
-  
-  // Get cached value
-  get(): T | null {
-    return getCached<T>(this.key);
-  }
-  
-  // Set and cache value
-  set(value: T): void {
-    setCache(this.key, value);
-  }
-  
-  // Get with default value
-  getOrDefault(defaultValue: T): T {
-    return getCached<T>(this.key) ?? defaultValue;
-  }
-  
-  // Clear this cache entry
-  clear(): void {
-    localStorage.removeItem(CacheKeys.CACHE_PREFIX + this.key);
-  }
-}
-
 // Import Comment type from types.ts if it exists, otherwise define locally
 type Comment = any; // TODO: Define proper Comment type in types.ts
 type WorkflowFile = any; // TODO: Define proper WorkflowFile type in types.ts
 
-// Predefined cache keys with type safety
-export const cache = {
-  repos: new CacheKeys<Repository[]>(CacheKeyFns.repos()),
+/**
+ * Proxy-based auto-caching store
+ * Automatically saves and loads data from localStorage using Proxy
+ */
+interface CacheStore {
+  repos: Repository[];
+  repoIssues: (owner: string, repo: string) => Issue[];
+  issueComments: (owner: string, repo: string, issueNumber: number) => Comment[];
+  workflowRuns: (owner: string, repo: string) => any[];
+  prDetails: (owner: string, repo: string, prNumber: number) => any;
+  issueExpandedData: (owner: string, repo: string, issueNumber: number) => CachedExpandedIssueData | null;
+  workflowFiles: WorkflowFile[];
+}
+
+// Create a Proxy-based cache that automatically saves/loads
+function createCachedProxy<T extends object>(initial: T, cacheKeyMap: Record<string, string>): T {
+  return new Proxy(initial, {
+    get(target: any, prop: string) {
+      // If it's a function property, return a function that manages cache
+      if (typeof target[prop] === 'function') {
+        return target[prop];
+      }
+      
+      // Check if we have a cache key for this property
+      const cacheKey = cacheKeyMap[prop];
+      if (cacheKey) {
+        // Try to load from cache first
+        const cached = getCached<any>(cacheKey);
+        if (cached !== null) {
+          target[prop] = cached;
+        }
+      }
+      
+      return target[prop];
+    },
+    
+    set(target: any, prop: string, value: any) {
+      target[prop] = value;
+      
+      // Automatically save to cache if we have a cache key
+      const cacheKey = cacheKeyMap[prop];
+      if (cacheKey && value !== null && value !== undefined) {
+        setCache(cacheKey, value);
+      }
+      
+      return true;
+    }
+  });
+}
+
+// Create cache store with Proxy auto-caching
+const cacheKeyMapping = {
+  repos: CacheKeyFns.repos(),
+  workflowFiles: CacheKeyFns.workflowFiles(),
+};
+
+const initialCacheState = {
+  repos: getCached<Repository[]>(CacheKeyFns.repos()) || [],
+  workflowFiles: getCached<WorkflowFile[]>(CacheKeyFns.workflowFiles()) || [],
   
-  repoIssues: (owner: string, repo: string) => 
-    new CacheKeys<Issue[]>(CacheKeyFns.repoIssues(owner, repo)),
+  // Factory functions for parameterized cache keys
+  repoIssues: (owner: string, repo: string): Issue[] => {
+    const key = CacheKeyFns.repoIssues(owner, repo);
+    return getCached<Issue[]>(key) || [];
+  },
   
-  issueComments: (owner: string, repo: string, issueNumber: number) =>
-    new CacheKeys<Comment[]>(CacheKeyFns.issueComments(owner, repo, issueNumber)),
+  issueComments: (owner: string, repo: string, issueNumber: number): Comment[] => {
+    const key = CacheKeyFns.issueComments(owner, repo, issueNumber);
+    return getCached<Comment[]>(key) || [];
+  },
   
-  workflowRuns: (owner: string, repo: string) =>
-    new CacheKeys<any[]>(CacheKeyFns.workflowRuns(owner, repo)),
+  workflowRuns: (owner: string, repo: string): any[] => {
+    const key = CacheKeyFns.workflowRuns(owner, repo);
+    return getCached<any[]>(key) || [];
+  },
   
-  prDetails: (owner: string, repo: string, prNumber: number) =>
-    new CacheKeys<any>(CacheKeyFns.prDetails(owner, repo, prNumber)),
+  prDetails: (owner: string, repo: string, prNumber: number): any => {
+    const key = CacheKeyFns.prDetails(owner, repo, prNumber);
+    return getCached<any>(key) || null;
+  },
   
-  issueExpandedData: (owner: string, repo: string, issueNumber: number) =>
-    new CacheKeys<CachedExpandedIssueData>(CacheKeyFns.issueExpandedData(owner, repo, issueNumber)),
-  
-  workflowFiles: new CacheKeys<WorkflowFile[]>(CacheKeyFns.workflowFiles()),
+  issueExpandedData: (owner: string, repo: string, issueNumber: number): CachedExpandedIssueData | null => {
+    const key = CacheKeyFns.issueExpandedData(owner, repo, issueNumber);
+    return getCached<CachedExpandedIssueData>(key);
+  },
+};
+
+export const cache = createCachedProxy(initialCacheState, cacheKeyMapping);
+
+// Helper function to set cache for parameterized keys
+export const setRepoIssuesCache = (owner: string, repo: string, data: Issue[]) => {
+  setCache(CacheKeyFns.repoIssues(owner, repo), data);
+};
+
+export const setIssueExpandedDataCache = (owner: string, repo: string, issueNumber: number, data: CachedExpandedIssueData) => {
+  setCache(CacheKeyFns.issueExpandedData(owner, repo, issueNumber), data);
+};
+
+export const setWorkflowFilesCache = (data: WorkflowFile[]) => {
+  setCache(CacheKeyFns.workflowFiles(), data);
 };
 
 // Initialize theme from localStorage

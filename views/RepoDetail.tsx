@@ -5,7 +5,7 @@ import { fetchIssues, createIssue, fetchAllWorkflowFiles, fetchRepositorySecrets
 import { Button } from '../components/Button';
 import { ToastContainer, useToast } from '../components/Toast';
 import { ArrowLeft, Plus, MessageCircle, AlertCircle, CheckCircle2, X, RefreshCw, FileCode, ChevronDown, ChevronUp, Key, Trash2, Eye, EyeOff, Shield } from 'lucide-solid';
-import { cache } from '../store';
+import { cache, setRepoIssuesCache, setWorkflowFilesCache } from '../store';
 
 interface RepoDetailProps {
   token: string;
@@ -16,17 +16,16 @@ interface RepoDetailProps {
 
 export const RepoDetail: Component<RepoDetailProps> = (props) => {
   const { toasts, dismissToast, showError } = useToast();
-  const issuesCache = cache.repoIssues(props.repo.owner.login, props.repo.name);
   
-  // Initialize from cache for instant display
-  const cachedIssues = issuesCache.getOrDefault([]);
-  const cachedWorkflows = cache.workflowFiles.getOrDefault([]);
+  // Initialize from cache for instant display - Proxy automatically loads from cache
+  const cachedIssues = cache.repoIssues(props.repo.owner.login, props.repo.name);
+  const cachedWorkflows = cache.workflowFiles;
   
   let bodyTextareaRef: HTMLTextAreaElement | undefined;
   
   const state = createMutable({
     issues: cachedIssues,
-    loading: issuesCache.get() === null,
+    loading: cachedIssues.length === 0,
     isRefreshing: false,
     isModalOpen: false,
     creating: false,
@@ -61,7 +60,8 @@ export const RepoDetail: Component<RepoDetailProps> = (props) => {
     try {
       const data = await fetchIssues(props.token, props.repo.owner.login, props.repo.name);
       state.issues = data;
-      issuesCache.set(data);
+      // Use helper to cache parameterized keys
+      setRepoIssuesCache(props.repo.owner.login, props.repo.name, data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -103,11 +103,12 @@ export const RepoDetail: Component<RepoDetailProps> = (props) => {
     
     state.loadingWorkflows = true;
     try {
-      const repos = cache.repos.getOrDefault([]);
+      const repos = cache.repos;
       if (repos.length > 0) {
         const workflows = await fetchAllWorkflowFiles(props.token, repos);
         state.workflowFiles = workflows;
-        cache.workflowFiles.set(workflows);
+        // Use helper to cache
+        setWorkflowFilesCache(workflows);
       }
     } catch (err) {
       console.error('Failed to load workflow files:', err);

@@ -19,9 +19,9 @@ interface DashboardProps {
 export const Dashboard: Component<DashboardProps> = (props) => {
   const { toasts, dismissToast, showError } = useToast();
   
-  // Initialize from cache for instant display
-  const cachedRepos = cache.repos.getOrDefault([]);
-  const hasCachedRepos = cache.repos.get() !== null;
+  // Initialize from cache for instant display - Proxy automatically loads from cache
+  const cachedRepos = cache.repos;
+  const hasCachedRepos = cachedRepos.length > 0;
   
   const state = createMutable({
     repos: cachedRepos,
@@ -37,8 +37,8 @@ export const Dashboard: Component<DashboardProps> = (props) => {
       
       const issuesMap: Record<number, Issue[]> = {};
       for (const repo of cachedRepos.slice(0, 4)) {
-        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name).get();
-        if (cachedIssues) {
+        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name);
+        if (cachedIssues && cachedIssues.length > 0) {
           issuesMap[repo.id] = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
         }
       }
@@ -75,17 +75,17 @@ export const Dashboard: Component<DashboardProps> = (props) => {
     try {
       const data = await fetchRepositories(props.token);
       state.repos = data;
-      // Cache the repos for instant display on next visit
-      cache.repos.set(data);
+      // Proxy automatically caches on assignment
+      cache.repos = data;
       
       // Load issues for first 4 repos - reuse cache when available
       const reposToShow = data.slice(0, 4);
       const issuesMap: Record<number, Issue[]> = {};
       
       for (const repo of reposToShow) {
-        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name).get();
+        const cachedIssues = cache.repoIssues(repo.owner.login, repo.name);
         
-        if (cachedIssues) {
+        if (cachedIssues && cachedIssues.length > 0) {
           // Reuse cached issues - filter to actual issues (not PRs) and take first 3
           const actualIssues = cachedIssues.filter(issue => !issue.pull_request).slice(0, 3);
           issuesMap[repo.id] = actualIssues;
