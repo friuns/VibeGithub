@@ -6,6 +6,7 @@ import { RepoDetail } from './views/RepoDetail';
 import { IssueDetail } from './views/IssueDetail';
 import { signOutFromFirebase, handleRedirectResult } from './services/firebaseService';
 import { validateToken } from './services/githubService';
+import { prefetchTopRepos } from './services/prefetchService';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 const App: React.FC = () => {
@@ -30,6 +31,9 @@ const App: React.FC = () => {
           // Validate token and get user data from GitHub API
           const ghUser = await validateToken(result.accessToken);
           handleLogin(result.accessToken, ghUser);
+        } else if (token) {
+          // Already logged in, prefetch in background
+          prefetchTopRepos(token);
         }
       } catch (err) {
         console.error('Redirect result error:', err);
@@ -37,7 +41,7 @@ const App: React.FC = () => {
         setCheckingRedirect(false);
       }
     };
-    
+
     checkRedirectResult();
   }, []);
 
@@ -47,6 +51,8 @@ const App: React.FC = () => {
     localStorage.setItem('gh_token', newToken);
     localStorage.setItem('gh_user', JSON.stringify(newUser));
     setCurrentRoute(AppRoute.REPO_LIST);
+    // Prefetch top repos data in background
+    prefetchTopRepos(newToken);
   };
 
   const handleLogout = async () => {

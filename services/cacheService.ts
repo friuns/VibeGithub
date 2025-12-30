@@ -68,6 +68,7 @@ export const CacheKeys = {
   prDetails: (owner: string, repo: string, prNumber: number) => `pr_${owner}_${repo}_${prNumber}`,
   issueExpandedData: (owner: string, repo: string, issueNumber: number) => `expanded_${owner}_${repo}_${issueNumber}`,
   workflowFiles: () => 'workflow_files',
+  prefetchStatus: () => 'prefetch_status',
 };
 
 // Type for cached expanded issue data (all data needed for expanded view)

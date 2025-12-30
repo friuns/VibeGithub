@@ -166,7 +166,7 @@ jobs:
           if [ -n "$APP_DESCRIPTION" ]; then
             # Escape the description for JSON
             ESCAPED_DESC=$(echo "$APP_DESCRIPTION" | jq -Rs .)
-            sed -i "s|APP_DESCRIPTION_PLACEHOLDER|### 📝 Application Description\n\n$APP_DESCRIPTION\n|g" /tmp/issue_payload.json
+            sed -i "s|APP_DESCRIPTION_PLACEHOLDER|###$APP_DESCRIPTION\n|g" /tmp/issue_payload.json
           else
             sed -i 's|APP_DESCRIPTION_PLACEHOLDER||g' /tmp/issue_payload.json
           fi

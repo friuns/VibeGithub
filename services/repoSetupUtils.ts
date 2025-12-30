@@ -62,7 +62,7 @@ const createAgentsMdFile = async (
     token,
     owner,
     repo,
-    'agents.md',
+    'AGENTS.md',
     content,
     'Add agents.md with encrypted secrets'
   );
