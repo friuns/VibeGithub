@@ -44,6 +44,10 @@ View PRs that reference your issue, with:
 - Deployment status tracking
 - GitHub Actions run visibility
 
+### Theme Support
+
+Toggle between light, dark, and system themes for comfortable viewing in any environment.
+
 ### Comment with AI Agents
 
 From any related PR, type your command and mention an agent:
@@ -70,7 +74,7 @@ The "Send @jules" button automatically appends the agent mention to your comment
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/VibeGithub.git
+git clone https://github.com/friuns/VibeGithub.git
 cd VibeGithub
 npm install
 
@@ -144,7 +148,10 @@ Agents that work with this pattern:
 │   ├── Button.tsx
 │   ├── Markdown.tsx
 │   ├── RepoCard.tsx        # Repo card with issue previews
+│   ├── ThemeToggle.tsx     # Theme switching component
 │   └── Toast.tsx
+├── contexts/
+│   └── ThemeContext.tsx    # Theme state management
 ├── services/
 │   ├── firebaseService.ts  # GitHub OAuth via Firebase
 │   ├── githubService.ts    # GitHub API (issues, PRs, workflows)
@@ -154,16 +161,23 @@ Agents that work with this pattern:
 │   ├── Dashboard.tsx       # Repository list
 │   ├── RepoDetail.tsx      # Issues + New Issue modal
 │   └── IssueDetail.tsx     # Issue view + @jules commenting
+├── constants.ts
+├── metadata.json
+├── tsconfig.json
+├── vite.config.ts
 └── types.ts
 ```
 
 ## Tech Stack
 
-- **React 18** + TypeScript
-- **Vite** for fast builds
+- **React 19** + TypeScript
+- **Vite 6** for fast builds
 - **Tailwind CSS** for styling
 - **Firebase Auth** for GitHub OAuth
 - **GitHub REST API** for repository operations
+- **Lucide React** for icons
+- **React Markdown** for rendering markdown
+- **Recharts** for data visualization
 
 ## License
 
